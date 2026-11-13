@@ -1,0 +1,25 @@
+# Maintainer: Copyzer Contributors
+pkgname=copyzer
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Fast, keyboard-first iPhone media copier TUI/CLI for Arch Linux and Omarchy"
+arch=('x86_64' 'aarch64')
+url="https://github.com/batcillos/copyzer"
+license=('MIT')
+depends=('ifuse' 'libimobiledevice' 'usbmuxd')
+makedepends=('cargo')
+optdepends=('xdg-terminal-exec: launch TUI from desktop entry')
+
+build() {
+  cd "$startdir/.."
+  export RUSTUP_TOOLCHAIN=stable
+  export CARGO_TARGET_DIR=target
+  cargo build --release --locked
+}
+
+package() {
+  cd "$startdir/.."
+  install -Dm755 "target/release/$pkgname" "$pkgdir/usr/bin/$pkgname"
+  install -Dm644 "pkgbuild/$pkgname.desktop" "$pkgdir/usr/share/applications/$pkgname.desktop"
+  install -Dm644 "LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

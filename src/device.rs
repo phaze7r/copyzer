@@ -1,0 +1,331 @@
+use anyhow::{bail, Context, Result};
+use serde::Serialize;
+use std::env;
+use std::os::unix::fs::PermissionsExt;
+use std::path::{Path, PathBuf};
+use std::process::Command;
+
+const REQUIRED_TOOLS: &[&str] = &["idevice_id", "ideviceinfo", "idevicepair", "ifuse"];
+const DOCTOR_TOOLS: &[&str] = &[
+    "idevice_id",
+    "ideviceinfo",
+    "idevicepair",
+    "ifuse",
+    "fusermount3",
+];
+const UNTRUSTED_MESSAGE: &str = "Unlock your iPhone and tap Trust";
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct DeviceInfo {
+    pub udid: String,
+    pub name: String,
+    pub product_type: String,
+    pub ios_version: String,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub enum DeviceStatus {
+    Connected(DeviceInfo),
+    Untrusted { udid: String, message: String },
+    NoDevice,
+    MissingTools(Vec<String>),
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct DoctorReport {
+    pub tools: Vec<(String, bool)>,
+    pub status: DeviceStatus,
+}
+
+/// RAII guard for an `ifuse` mount directory.
+/// Unmounts and removes the temporary mount directory on drop when owned.
+pub struct MountGuard {
+    path: PathBuf,
+    owns_mount: bool,
+}
+
+impl MountGuard {
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    /// Wraps an already-mounted directory (e.g. `--mount-dir`) without unmounting on drop.
+    pub fn from_existing(path: PathBuf) -> Self {
+        Self {
+            path,
+            owns_mount: false,
+        }
+    }
+}
+
+impl Drop for MountGuard {
+    fn drop(&mut self) {
+        if !self.owns_mount {
+            return;
+        }
+
+        let unmounted = Command::new("fusermount3")
+            .arg("-u")
+            .arg(&self.path)
+            .status()
+            .is_ok_and(|s| s.success())
+            || Command::new("umount")
+                .arg(&self.path)
+                .status()
+                .is_ok_and(|s| s.success());
+
+        if unmounted {
+            let _ = std::fs::remove_dir(&self.path);
+        }
+    }
+}
+
+fn tool_in_path(tool: &str) -> bool {
+    let Some(path_var) = env::var_os("PATH") else {
+        return false;
+    };
+
+    env::split_paths(&path_var).any(|dir| {
+        let candidate = dir.join(tool);
+        candidate
+            .metadata()
+            .is_ok_and(|meta| meta.is_file() && (meta.permissions().mode() & 0o111 != 0))
+    })
+}
+
+pub fn doctor_report() -> DoctorReport {
+    let tools = DOCTOR_TOOLS
+        .iter()
+        .map(|&tool| (tool.to_string(), tool_in_path(tool)))
+        .collect();
+    let status = detect_device();
+
+    DoctorReport { tools, status }
+}
+
+pub fn detect_device() -> DeviceStatus {
+    let missing: Vec<String> = REQUIRED_TOOLS
+        .iter()
+        .filter(|&&tool| !tool_in_path(tool))
+        .map(|&tool| tool.to_string())
+        .collect();
+
+    if !missing.is_empty() {
+        return DeviceStatus::MissingTools(missing);
+    }
+
+    let Ok(id_out) = Command::new("idevice_id").arg("-l").output() else {
+        return DeviceStatus::NoDevice;
+    };
+    if !id_out.status.success() {
+        return DeviceStatus::NoDevice;
+    }
+
+    let Some(udid) = parse_udid_list(&String::from_utf8_lossy(&id_out.stdout)) else {
+        return DeviceStatus::NoDevice;
+    };
+
+    let Ok(pair_out) = Command::new("idevicepair")
+        .args(["validate", "-u", &udid])
+        .output()
+    else {
+        return DeviceStatus::NoDevice;
+    };
+
+    let pair_combined = format!(
+        "{}\n{}",
+        String::from_utf8_lossy(&pair_out.stdout),
+        String::from_utf8_lossy(&pair_out.stderr)
+    );
+    if !pair_out.status.success() || is_untrusted_output(&pair_combined) {
+        return DeviceStatus::Untrusted {
+            udid,
+            message: UNTRUSTED_MESSAGE.to_string(),
+        };
+    }
+
+    let Ok(info_out) = Command::new("ideviceinfo").args(["-u", &udid]).output() else {
+        return DeviceStatus::NoDevice;
+    };
+    if !info_out.status.success() {
+        let info_combined = format!(
+            "{}\n{}",
+            String::from_utf8_lossy(&info_out.stdout),
+            String::from_utf8_lossy(&info_out.stderr)
+        );
+        if is_untrusted_output(&info_combined) {
+            return DeviceStatus::Untrusted {
+                udid,
+                message: UNTRUSTED_MESSAGE.to_string(),
+            };
+        }
+        return DeviceStatus::NoDevice;
+    }
+
+    let info = parse_ideviceinfo(&String::from_utf8_lossy(&info_out.stdout), &udid);
+    DeviceStatus::Connected(info)
+}
+
+pub fn mount_iphone(udid: &str) -> Result<MountGuard> {
+    let dir = tempfile::Builder::new()
+        .prefix("copyzer-")
+        .tempdir()
+        .context("failed to create temporary mount directory")?
+        .keep();
+
+    let output = match Command::new("ifuse").arg("-u").arg(udid).arg(&dir).output() {
+        Ok(out) => out,
+        Err(err) => {
+            let _ = std::fs::remove_dir(&dir);
+            return Err(err).context("failed to execute ifuse");
+        }
+    };
+
+    if !output.status.success() {
+        let _ = std::fs::remove_dir(&dir);
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        let detail = if stderr.is_empty() {
+            format!("exit status {}", output.status)
+        } else {
+            stderr
+        };
+        bail!("ifuse failed to mount device {udid}: {detail}");
+    }
+
+    Ok(MountGuard {
+        path: dir,
+        owns_mount: true,
+    })
+}
+
+pub fn parse_udid_list(raw: &str) -> Option<String> {
+    raw.lines()
+        .map(str::trim)
+        .find(|line| !line.is_empty())
+        .map(str::to_string)
+}
+
+pub fn is_untrusted_output(raw: &str) -> bool {
+    let lower = raw.to_ascii_lowercase();
+    [
+        "trust",
+        "passcode",
+        "not paired",
+        "unpaired",
+        "pair again",
+        "could not validate",
+        "locked",
+    ]
+    .iter()
+    .any(|needle| lower.contains(needle))
+}
+
+pub fn parse_ideviceinfo(raw: &str, udid: &str) -> DeviceInfo {
+    let mut name = None;
+    let mut product_type = None;
+    let mut ios_version = None;
+
+    for line in raw.lines() {
+        let Some((key, val)) = line.split_once(':') else {
+            continue;
+        };
+        let key = key.trim();
+        let val = val.trim();
+        if val.is_empty() {
+            continue;
+        }
+        match key {
+            "DeviceName" => name = Some(val.to_string()),
+            "ProductType" => product_type = Some(val.to_string()),
+            "ProductVersion" => ios_version = Some(val.to_string()),
+            _ => {}
+        }
+    }
+
+    DeviceInfo {
+        udid: udid.to_string(),
+        name: name.unwrap_or_else(|| "iPhone".to_string()),
+        product_type: product_type.unwrap_or_else(|| "Unknown".to_string()),
+        ios_version: ios_version.unwrap_or_else(|| "Unknown".to_string()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_ideviceinfo_extracts_fields_with_fallbacks() {
+        let sample = "\
+DeviceName: Batcillos iPhone 16 Pro Max
+ProductType: iPhone17,2
+ProductVersion: 18.1.1
+SerialNumber: ABC123
+";
+        let info = parse_ideviceinfo(sample, "00008140-TEST");
+        assert_eq!(
+            info,
+            DeviceInfo {
+                udid: "00008140-TEST".to_string(),
+                name: "Batcillos iPhone 16 Pro Max".to_string(),
+                product_type: "iPhone17,2".to_string(),
+                ios_version: "18.1.1".to_string(),
+            }
+        );
+
+        let partial = "DeviceName:\n";
+        let fallback = parse_ideviceinfo(partial, "UDID-FALLBACK");
+        assert_eq!(
+            fallback,
+            DeviceInfo {
+                udid: "UDID-FALLBACK".to_string(),
+                name: "iPhone".to_string(),
+                product_type: "Unknown".to_string(),
+                ios_version: "Unknown".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn parse_udid_list_returns_first_non_empty_line() {
+        assert_eq!(parse_udid_list(""), None);
+        assert_eq!(parse_udid_list("   \n\n  \t "), None);
+        assert_eq!(
+            parse_udid_list("\n  00008140-0011223344556677  \nsecond-udid\n"),
+            Some("00008140-0011223344556677".to_string())
+        );
+    }
+
+    #[test]
+    fn is_untrusted_output_detects_trust_and_passcode_errors() {
+        assert!(is_untrusted_output(
+            "ERROR: Please accept the trust dialog on the screen of device"
+        ));
+        assert!(is_untrusted_output(
+            "ERROR: Could not validate with device because a passcode is set."
+        ));
+        assert!(is_untrusted_output(
+            "ERROR: Device is not paired with this host"
+        ));
+        assert!(!is_untrusted_output(
+            "SUCCESS: Validated pairing with device"
+        ));
+    }
+
+    #[test]
+    fn mount_guard_from_existing_preserves_directory_on_drop() {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().to_path_buf();
+        let sentinel = path.join("DCIM");
+        std::fs::create_dir(&sentinel).unwrap();
+
+        {
+            let guard = MountGuard::from_existing(path.clone());
+            assert_eq!(guard.path(), path.as_path());
+            assert!(!guard.owns_mount);
+        }
+
+        assert!(path.exists());
+        assert!(sentinel.exists());
+    }
+}

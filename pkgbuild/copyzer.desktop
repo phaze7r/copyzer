@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Copyzer
+Comment=Fast iPhone media copier for Omarchy
+Exec=xdg-terminal-exec copyzer
+Terminal=false
+Type=Application
+Categories=Utility;FileTransfer;
+Keywords=iphone;photos;media;omarchy;

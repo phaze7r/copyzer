@@ -1,11 +1,11 @@
 # STATE.md — Copyzer Project State
 
 **Last Updated:** 2026-11-14  
-**Version:** v0.1.0-dev  
-**Phase:** Design approved → Planning & Implementation  
+**Version:** v0.1.0  
+**Phase:** v0.1 Implemented & Verified  
 
 ## Locked Architectural Decisions
-- **Language:** Rust (edition 2021/2024)
+- **Language:** Rust (edition 2021)
 - **UI:** Terminal UI (`ratatui` + `crossterm`) + CLI (`clap`)
 - **iOS Backend:** CLI wrappers around `libimobiledevice` (`idevice_id`, `ideviceinfo`, `idevicepair`) and `ifuse` with RAII `MountGuard`
 - **Media Grouping (v0.1):**
@@ -19,12 +19,12 @@
 | Module | Status | Notes |
 |--------|--------|-------|
 | `.gitignore` & init docs | Done | Git initialized on `main` |
-| `Cargo.toml` & `src/main.rs` | Pending | Crate scaffold |
-| `src/theme.rs` | Pending | Omarchy `colors.toml` + fallback |
-| `src/device.rs` | Pending | USB/trust + `ifuse` `MountGuard` |
-| `src/scanner.rs` | Pending | `DCIM/` Year/Month + folder scan |
-| `src/albums.rs` | Pending | Best-effort `Photos.sqlite` reader |
-| `src/copier.rs` | Pending | Atomic copy + progress events |
-| `src/cli.rs` | Pending | `doctor`, `scan`, `copy` |
-| `src/tui/` | Pending | `ratatui` TUI + `?` help overlay |
-| `pkgbuild/` & `README.md` | Pending | `PKGBUILD`, `.desktop`, MIT `LICENSE` |
+| `Cargo.toml` & `src/lib.rs` | Done | Crate & `Cargo.lock` ready |
+| `src/theme.rs` | Done | Omarchy `colors.toml` + fallback (3 tests) |
+| `src/device.rs` | Done | USB/trust + `ifuse` `MountGuard` (4 tests) |
+| `src/scanner.rs` | Done | `DCIM/` Year/Month + folder scan (3 tests) |
+| `src/albums.rs` | Done | Best-effort `Photos.sqlite` reader (3 tests) |
+| `src/copier.rs` | Done | Atomic copy + progress events (4 tests) |
+| `src/cli.rs` | Done | `doctor`, `scan`, `copy`, `--mount-dir` (3 tests) |
+| `src/tui/` | Done | `ratatui` TUI + `?` help overlay (4 tests) |
+| `pkgbuild/` & `README.md` | Done | `PKGBUILD`, `copyzer.desktop`, MIT `LICENSE` |
