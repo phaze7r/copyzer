@@ -1,0 +1,28 @@
+# Rust / Cargo
+/target/
+**/*.rs.bk
+
+# Arch Linux makepkg
+/pkgbuild/pkg/
+/pkgbuild/src/
+/pkgbuild/*.pkg.tar.zst
+/pkgbuild/*.pkg.tar.xz
+/pkgbuild/*.tar.gz
+/pkgbuild/*.tar.zst
+*.pkg.tar.zst
+
+# Copyzer runtime & temp artifacts
+*.part
+.copyzer-mount/
+
+# Graphify & local agent scratch
+graphify-out/.graphify_*
+graphify-out/cost.json
+
+# OS / Editor
+.DS_Store
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
