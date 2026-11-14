@@ -26,3 +26,9 @@ graphify-out/cost.json
 *~
 .vscode/
 .idea/
+
+# Local agent docs
+ANTIGRAVITY.md
+CLAUDE.md
+STATE.md
+HANDOFF.md
