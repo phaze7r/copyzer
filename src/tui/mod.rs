@@ -39,6 +39,21 @@ pub enum CopyEvent {
     Done(anyhow::Result<copier::CopySummary>),
 }
 
+pub struct RefreshOutcome {
+    pub device_status: device::DeviceStatus,
+    pub mount_guard: Option<device::MountGuard>,
+    pub scan_index: Option<scanner::ScanIndex>,
+    pub albums: Vec<scanner::Bucket>,
+    pub album_warning: Option<String>,
+    pub status_msg: String,
+}
+
+pub enum RefreshEvent {
+    Status(String),
+    DeviceStatus(device::DeviceStatus),
+    Done(Box<RefreshOutcome>),
+}
+
 /// A bucket row displayed in the TUI list, with optional visual indentation.
 #[derive(Debug, Clone)]
 pub struct DisplayBucket<'a> {
@@ -62,6 +77,7 @@ pub struct AppState {
     pub dest_input: String,
     pub show_help: bool,
     pub copy_rx: Option<mpsc::Receiver<CopyEvent>>,
+    pub refresh_rx: Option<mpsc::Receiver<RefreshEvent>>,
     pub cancel_flag: Arc<AtomicBool>,
     pub copy_progress: Option<copier::CopyProgress>,
     pub copy_summary: Option<copier::CopySummary>,
@@ -87,6 +103,7 @@ impl AppState {
             dest_input: String::new(),
             show_help: false,
             copy_rx: None,
+            refresh_rx: None,
             cancel_flag: Arc::new(AtomicBool::new(false)),
             copy_progress: None,
             copy_summary: None,
@@ -98,71 +115,87 @@ impl AppState {
         self.copy_rx.is_some()
     }
 
+    pub fn is_refreshing(&self) -> bool {
+        self.refresh_rx.is_some()
+    }
+
     pub fn refresh(&mut self) {
         self.scan_index = None;
         self.albums.clear();
         self.album_warning = None;
-        // Drop any previous mount before remounting.
-        self.mount_guard = None;
-
-        if let Some(dir) = self.mount_dir_override.clone() {
-            let guard = device::MountGuard::from_existing(dir.clone());
-            self.device_status = device::DeviceStatus::Connected(device::DeviceInfo {
-                udid: "local".to_string(),
-                name: dir.display().to_string(),
-                product_type: "MountDir".to_string(),
-                ios_version: "-".to_string(),
-            });
-            self.scan_from_guard(guard);
-        } else {
-            self.device_status = device::detect_device();
-            match &self.device_status {
-                device::DeviceStatus::Connected(info) => {
-                    let udid = info.udid.clone();
-                    match device::mount_iphone(&udid) {
-                        Ok(guard) => self.scan_from_guard(guard),
-                        Err(err) => {
-                            self.status_msg = format!("Mount failed: {err}");
-                        }
-                    }
-                }
-                device::DeviceStatus::Untrusted { message, .. } => {
-                    self.status_msg = format!("{message} — press r to retry");
-                }
-                device::DeviceStatus::NoDevice => {
-                    self.status_msg = "Plug in iPhone via USB-C — press r to retry".to_string();
-                }
-                device::DeviceStatus::MissingTools(tools) => {
-                    self.status_msg = format!(
-                        "Missing tools: {} — install via pacman",
-                        tools.join(", ")
-                    );
-                }
-            }
-        }
-
-        self.clamp_cursor();
+        let prev_guard = self.mount_guard.take();
+        let outcome = execute_refresh(
+            self.mount_dir_override.clone(),
+            prev_guard,
+            |_| {},
+            |_| {},
+        );
+        self.apply_refresh_outcome(outcome);
     }
 
-    fn scan_from_guard(&mut self, guard: device::MountGuard) {
-        match scanner::scan_dcim(guard.path()) {
-            Ok(index) => {
-                let album_res = albums::load_albums(guard.path(), &index);
-                self.albums = album_res.albums;
-                self.album_warning = album_res.warning;
-                self.status_msg = format!(
-                    "Ready: {} items ({})",
-                    index.items.len(),
-                    scanner::format_bytes(index.total_bytes)
-                );
-                self.scan_index = Some(index);
-                self.mount_guard = Some(guard);
-            }
-            Err(err) => {
-                self.status_msg = format!("Scan failed: {err}");
-                self.mount_guard = Some(guard);
+    pub fn start_refresh(&mut self) {
+        if self.is_refreshing() || self.is_copying() {
+            return;
+        }
+        self.scan_index = None;
+        self.albums.clear();
+        self.album_warning = None;
+        self.status_msg = "Detecting iPhone...".to_string();
+        let prev_guard = self.mount_guard.take();
+        let mount_dir_override = self.mount_dir_override.clone();
+
+        let (tx, rx) = mpsc::channel();
+        self.refresh_rx = Some(rx);
+
+        std::thread::spawn(move || {
+            let outcome = execute_refresh(
+                mount_dir_override,
+                prev_guard,
+                |msg| {
+                    let _ = tx.send(RefreshEvent::Status(msg));
+                },
+                |status| {
+                    let _ = tx.send(RefreshEvent::DeviceStatus(status));
+                },
+            );
+            let _ = tx.send(RefreshEvent::Done(Box::new(outcome)));
+        });
+    }
+
+    pub fn poll_refresh_events(&mut self) {
+        let Some(rx) = &self.refresh_rx else {
+            return;
+        };
+
+        let mut finished = None;
+        while let Ok(ev) = rx.try_recv() {
+            match ev {
+                RefreshEvent::Status(msg) => {
+                    self.status_msg = msg;
+                }
+                RefreshEvent::DeviceStatus(status) => {
+                    self.device_status = status;
+                }
+                RefreshEvent::Done(outcome) => {
+                    finished = Some(*outcome);
+                }
             }
         }
+
+        if let Some(done) = finished {
+            self.refresh_rx = None;
+            self.apply_refresh_outcome(done);
+        }
+    }
+
+    fn apply_refresh_outcome(&mut self, outcome: RefreshOutcome) {
+        self.device_status = outcome.device_status;
+        self.mount_guard = outcome.mount_guard;
+        self.scan_index = outcome.scan_index;
+        self.albums = outcome.albums;
+        self.album_warning = outcome.album_warning;
+        self.status_msg = outcome.status_msg;
+        self.clamp_cursor();
     }
 
     pub fn current_buckets(&self) -> Vec<DisplayBucket<'_>> {
@@ -470,8 +503,8 @@ impl AppState {
                 }
             }
             KeyCode::Char('r') => {
-                if !self.is_copying() {
-                    self.refresh();
+                if !self.is_copying() && !self.is_refreshing() {
+                    self.start_refresh();
                 }
             }
             KeyCode::Enter | KeyCode::Char('c') => {
@@ -481,6 +514,111 @@ impl AppState {
         }
 
         false
+    }
+}
+
+fn execute_refresh(
+    mount_dir_override: Option<PathBuf>,
+    prev_guard: Option<device::MountGuard>,
+    on_status: impl Fn(String),
+    on_device: impl Fn(device::DeviceStatus),
+) -> RefreshOutcome {
+    drop(prev_guard);
+
+    let (device_status, guard) = if let Some(dir) = mount_dir_override {
+        let status = device::DeviceStatus::Connected(device::DeviceInfo {
+            udid: "local".to_string(),
+            name: dir.display().to_string(),
+            product_type: "MountDir".to_string(),
+            ios_version: "-".to_string(),
+        });
+        on_device(status.clone());
+        (status, device::MountGuard::from_existing(dir))
+    } else {
+        on_status("Detecting iPhone...".to_string());
+        let status = device::detect_device();
+        on_device(status.clone());
+        match &status {
+            device::DeviceStatus::Connected(info) => {
+                on_status(format!("Mounting {}...", info.name));
+                match device::mount_iphone(&info.udid) {
+                    Ok(guard) => (status, guard),
+                    Err(err) => {
+                        return RefreshOutcome {
+                            device_status: status,
+                            mount_guard: None,
+                            scan_index: None,
+                            albums: Vec::new(),
+                            album_warning: None,
+                            status_msg: format!("Mount failed: {err}"),
+                        };
+                    }
+                }
+            }
+            device::DeviceStatus::Untrusted { message, .. } => {
+                let msg = format!("{message} — press r to retry");
+                return RefreshOutcome {
+                    device_status: status,
+                    mount_guard: None,
+                    scan_index: None,
+                    albums: Vec::new(),
+                    album_warning: None,
+                    status_msg: msg,
+                };
+            }
+            device::DeviceStatus::NoDevice => {
+                return RefreshOutcome {
+                    device_status: status,
+                    mount_guard: None,
+                    scan_index: None,
+                    albums: Vec::new(),
+                    album_warning: None,
+                    status_msg: "Plug in iPhone via USB-C — press r to retry".to_string(),
+                };
+            }
+            device::DeviceStatus::MissingTools(tools) => {
+                let msg = format!("Missing tools: {} — install via pacman", tools.join(", "));
+                return RefreshOutcome {
+                    device_status: status,
+                    mount_guard: None,
+                    scan_index: None,
+                    albums: Vec::new(),
+                    album_warning: None,
+                    status_msg: msg,
+                };
+            }
+        }
+    };
+
+    on_status("Scanning DCIM/...".to_string());
+    match scanner::scan_dcim_with_progress(guard.path(), |count| {
+        on_status(format!("Scanning DCIM/ ({count} files)..."));
+    }) {
+        Ok(index) => {
+            on_status(format!("Loading albums ({} files)...", index.items.len()));
+            let album_res = albums::load_albums(guard.path(), &index);
+            let status_msg = format!(
+                "Ready: {} items ({})",
+                index.items.len(),
+                scanner::format_bytes(index.total_bytes)
+            );
+            RefreshOutcome {
+                device_status,
+                mount_guard: Some(guard),
+                scan_index: Some(index),
+                albums: album_res.albums,
+                album_warning: album_res.warning,
+                status_msg,
+            }
+        }
+        Err(err) => RefreshOutcome {
+            device_status,
+            mount_guard: Some(guard),
+            scan_index: None,
+            albums: Vec::new(),
+            album_warning: None,
+            status_msg: format!("Scan failed: {err}"),
+        },
     }
 }
 
@@ -546,9 +684,10 @@ impl Drop for TerminalGuard {
 pub fn run(mount_dir: Option<PathBuf>, dest: Option<PathBuf>) -> anyhow::Result<()> {
     let mut guard = TerminalGuard::new()?;
     let mut app = AppState::new(mount_dir, dest);
-    app.refresh();
+    app.start_refresh();
 
     loop {
+        app.poll_refresh_events();
         app.poll_copy_events();
         guard.terminal.draw(|frame| ui::render(frame, &app))?;
 

@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" width="960" height="540">
+  <defs>
+    <style>
+      .mono { font-family: "JetBrains Mono", "Fira Code", "Cascadia Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 14px; }
+      .bold { font-weight: 700; }
+      .dim { fill: #64748B; }
+      .muted { fill: #94A3B8; }
+      .fg { fill: #F8FAFC; }
+      .accent { fill: #2563EB; }
+      .amber { fill: #F59E0B; }
+      .green { fill: #22C55E; }
+      .bg { fill: #0F172A; }
+      .panel { fill: #0F172A; stroke: #334155; stroke-width: 1.5; }
+    </style>
+  </defs>
+
+  <!-- Outer window frame -->
+  <rect x="0" y="0" width="960" height="540" rx="12" fill="#0B1120" stroke="#1E293B" stroke-width="2"/>
+  <rect x="1" y="1" width="958" height="34" rx="11" fill="#1E293B"/>
+  <rect x="1" y="20" width="958" height="15" fill="#1E293B"/>
+  <circle cx="22" cy="18" r="6" fill="#EF4444"/>
+  <circle cx="42" cy="18" r="6" fill="#F59E0B"/>
+  <circle cx="62" cy="18" r="6" fill="#22C55E"/>
+  <text x="480" y="23" text-anchor="middle" class="mono muted" font-size="12">copyzer — atomic copy &amp; albums</text>
+
+  <!-- Terminal canvas -->
+  <rect x="16" y="44" width="928" height="480" rx="6" class="bg"/>
+
+  <!-- Header box -->
+  <rect x="24" y="52" width="912" height="42" rx="4" class="panel"/>
+  <text x="38" y="78" class="mono bold accent">COPYZER v0.1</text>
+  <rect x="152" y="61" width="238" height="24" rx="3" fill="#22C55E"/>
+  <text x="162" y="78" class="mono bold" fill="#0F172A">iPhone 16 Pro (iOS 27.0.1)</text>
+  <text x="412" y="78" class="mono fg">Dest: /home/batcillos/Pictures/Copyzer</text>
+
+  <!-- Tabs box -->
+  <rect x="24" y="102" width="912" height="40" rx="4" class="panel"/>
+  <text x="40" y="127" class="mono muted">[1] Years &amp; Months</text>
+  <text x="208" y="127" class="mono dim">│</text>
+  <text x="232" y="127" class="mono bold accent">[2] Albums</text>
+  <text x="336" y="127" class="mono dim">│</text>
+  <text x="360" y="127" class="mono muted">[3] DCIM Folders</text>
+
+  <!-- Main table box -->
+  <rect x="24" y="150" width="912" height="316" rx="4" class="panel"/>
+  <rect x="38" y="142" width="76" height="16" class="bg"/>
+  <text x="44" y="155" class="mono muted">Albums</text>
+
+  <!-- Highlighted Row 0 -->
+  <rect x="28" y="168" width="904" height="26" fill="#2563EB"/>
+  <text x="34" y="186" class="mono bold" fill="#0F172A">▶ [x]  Camera Roll</text>
+  <text x="720" y="186" class="mono bold" fill="#0F172A">4,210 files</text>
+  <text x="845" y="186" class="mono bold" fill="#0F172A">16.12 GB</text>
+
+  <text x="52" y="214" class="mono muted">[ ]</text>
+  <text x="92" y="214" class="mono fg">Favorites</text>
+  <text x="720" y="214" class="mono muted">186 files</text>
+  <text x="845" y="214" class="mono fg">742.4 MB</text>
+
+  <text x="52" y="240" class="mono muted">[ ]</text>
+  <text x="92" y="240" class="mono fg">Northern Areas 2026</text>
+  <text x="720" y="240" class="mono muted">314 files</text>
+  <text x="845" y="240" class="mono fg">1.52 GB</text>
+
+  <text x="52" y="266" class="mono muted">[ ]</text>
+  <text x="92" y="266" class="mono fg">ProRAW Captures</text>
+  <text x="720" y="266" class="mono muted">68 files</text>
+  <text x="845" y="266" class="mono fg">2.18 GB</text>
+
+  <!-- Help overlay popup -->
+  <rect x="176" y="176" width="608" height="264" rx="6" fill="#0F172A" stroke="#F59E0B" stroke-width="2"/>
+  <rect x="190" y="168" width="176" height="16" class="bg"/>
+  <text x="196" y="181" class="mono bold amber">Keyboard Shortcuts</text>
+
+  <text x="198" y="210" class="mono fg">Tab / 1 / 2 / 3   Switch view (Years/Months, Albums, DCIM)</text>
+  <text x="198" y="234" class="mono fg">Up/k, Down/j      Move cursor</text>
+  <text x="198" y="258" class="mono fg">Space             Toggle selection on highlighted bucket</text>
+  <text x="198" y="282" class="mono fg">a                 Select all / none in current tab</text>
+  <text x="198" y="306" class="mono fg">Enter / c         Copy selected (or highlighted) bucket</text>
+  <text x="198" y="330" class="mono fg">d                 Edit destination path (Enter save, Esc cancel)</text>
+  <text x="198" y="354" class="mono fg">r                 Refresh device &amp; rescan</text>
+  <text x="198" y="378" class="mono fg">?                 Toggle this help overlay</text>
+  <text x="198" y="402" class="mono fg">q / Esc           Cancel active copy or quit</text>
+  <text x="198" y="426" class="mono muted">Press ? or Esc to close</text>
+
+  <!-- Footer progress gauge -->
+  <rect x="24" y="474" width="912" height="42" rx="4" class="panel"/>
+  <rect x="26" y="476" width="620" height="38" rx="2" fill="#2563EB"/>
+  <text x="480" y="500" text-anchor="middle" class="mono bold fg">2,840/4,210 (IMG_8412.HEIC) — Esc/q Cancel</text>
+</svg>

@@ -1,9 +1,6 @@
-use anyhow::Context;
 use chrono::Datelike;
 use serde::Serialize;
 use std::collections::BTreeMap;
-use std::fs::File;
-use std::io::BufReader;
 use std::path::{Component, Path, PathBuf};
 use std::time::SystemTime;
 use walkdir::WalkDir;
@@ -53,6 +50,13 @@ impl ScanIndex {
 }
 
 pub fn scan_dcim(mount_root: &Path) -> anyhow::Result<ScanIndex> {
+    scan_dcim_with_progress(mount_root, |_| {})
+}
+
+pub fn scan_dcim_with_progress<F>(mount_root: &Path, mut on_progress: F) -> anyhow::Result<ScanIndex>
+where
+    F: FnMut(usize),
+{
     if !mount_root.exists() {
         anyhow::bail!("Mount root does not exist: {}", mount_root.display());
     }
@@ -65,8 +69,21 @@ pub fn scan_dcim(mount_root: &Path) -> anyhow::Result<ScanIndex> {
     let mut items = Vec::new();
     let mut total_bytes = 0u64;
 
-    for entry in WalkDir::new(&dcim_dir).sort_by_file_name() {
-        let entry = entry.with_context(|| format!("Failed walking {}", dcim_dir.display()))?;
+    let walker = WalkDir::new(&dcim_dir)
+        .sort_by_file_name()
+        .into_iter()
+        .filter_entry(|entry| {
+            entry.depth() == 0
+                || !entry
+                    .file_name()
+                    .to_str()
+                    .is_some_and(|name| name.starts_with('.'))
+        });
+
+    for entry in walker {
+        let Ok(entry) = entry else {
+            continue;
+        };
         if !entry.file_type().is_file() {
             continue;
         }
@@ -76,11 +93,11 @@ pub fn scan_dcim(mount_root: &Path) -> anyhow::Result<ScanIndex> {
             continue;
         }
 
-        let metadata = entry
-            .metadata()
-            .with_context(|| format!("Failed reading metadata for {}", path.display()))?;
+        let Ok(metadata) = entry.metadata() else {
+            continue;
+        };
         let size = metadata.len();
-        let (year, month) = exif_year_month(path).unwrap_or_else(|| mtime_year_month(&metadata));
+        let (year, month) = mtime_year_month(&metadata);
 
         let rel_path = path
             .strip_prefix(mount_root)
@@ -100,6 +117,10 @@ pub fn scan_dcim(mount_root: &Path) -> anyhow::Result<ScanIndex> {
             month,
             dcim_folder,
         });
+
+        if items.len() % 50 == 0 {
+            on_progress(items.len());
+        }
     }
 
     let years = build_buckets(&items, true, |item| format!("{:04}", item.year));
@@ -150,24 +171,6 @@ fn extract_dcim_folder(dcim_dir: &Path, file_path: &Path) -> String {
         (Some(Component::Normal(folder)), Some(_)) => folder.to_string_lossy().into_owned(),
         _ => "DCIM".to_string(),
     }
-}
-
-fn exif_year_month(path: &Path) -> Option<(i32, u32)> {
-    let file = File::open(path).ok()?;
-    let mut reader = BufReader::new(file);
-    let exif = exif::Reader::new().read_from_container(&mut reader).ok()?;
-    let field = exif.get_field(exif::Tag::DateTimeOriginal, exif::In::PRIMARY)?;
-
-    if let exif::Value::Ascii(ref values) = field.value {
-        for bytes in values {
-            if let Ok(dt) = exif::DateTime::from_ascii(bytes) {
-                if dt.year > 0 && (1..=12).contains(&dt.month) {
-                    return Some((i32::from(dt.year), u32::from(dt.month)));
-                }
-            }
-        }
-    }
-    None
 }
 
 fn mtime_year_month(metadata: &std::fs::Metadata) -> (i32, u32) {

@@ -210,6 +210,9 @@ fn render_main(frame: &mut Frame<'_>, area: Rect, app: &AppState) {
 }
 
 fn empty_state_message(app: &AppState) -> (String, ratatui::style::Color) {
+    if app.is_refreshing() {
+        return (format!("\n{}", app.status_msg), app.theme.accent);
+    }
     match &app.device_status {
         DeviceStatus::MissingTools(tools) => (
             format!(

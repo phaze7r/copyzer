@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Copyzer — Fast iPhone Media Copier for Linux | Texodus</title>
+  <meta name="description" content="Copyzer is a fast, keyboard-first Rust TUI and CLI for copying iPhone photos and videos to Linux over USB-C. Built by Texodus." />
+  <link rel="icon" type="image/svg+xml" href="assets/copyzer.svg" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="container topbar-inner">
+      <a class="brand" href="#top">
+        <img src="assets/copyzer.svg" alt="Copyzer logo" />
+        <span>Copyzer</span>
+        <span class="version-pill">v0.1</span>
+      </a>
+      <nav class="nav">
+        <a href="#install">Install</a>
+        <a href="#features">Features</a>
+        <a href="#shortcuts">Shortcuts</a>
+        <a href="https://github.com/phaze7r/copyzer" target="_blank" rel="noopener">GitHub</a>
+      </nav>
+      <a class="texodus-link" href="https://texodus.tech" target="_blank" rel="noopener">
+        <span class="texodus-dot" aria-hidden="true"></span>
+        <span>texodus.tech</span>
+      </a>
+    </div>
+  </header>
+
+  <main id="top" class="container">
+    <section class="hero">
+      <div>
+        <h1>Copy iPhone photos &amp; videos to Linux, fast.</h1>
+        <p>
+          <strong>Copyzer</strong> (English <em>copy</em> + Pashto <em>zer</em>, "fast") is a keyboard-first Rust TUI and CLI built for Arch Linux, Omarchy, and modern Linux desktops. Plug in via USB-C, pick Years, Albums, or DCIM folders, and copy originals safely.
+        </p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="#install">Install v0.1</a>
+          <a class="btn btn-secondary" href="https://github.com/phaze7r/copyzer/releases/tag/v0.1" target="_blank" rel="noopener">Release v0.1</a>
+          <a class="btn btn-secondary" href="https://github.com/phaze7r/copyzer" target="_blank" rel="noopener">Source on GitHub</a>
+        </div>
+        <div class="quick-cmd">
+          <code id="hero-cmd">curl -fsSL https://raw.githubusercontent.com/phaze7r/copyzer/main/install.sh | bash</code>
+          <button class="copy-btn" type="button" data-copy="hero-cmd">Copy</button>
+        </div>
+      </div>
+
+      <div class="showcase">
+        <div class="showcase-tabs" role="tablist" aria-label="Interface views">
+          <button class="tab-btn active" type="button" data-shot="assets/tui-main.png" data-alt="Copyzer TUI Years and Months view">Years &amp; Months</button>
+          <button class="tab-btn" type="button" data-shot="assets/tui-progress.png" data-alt="Copyzer TUI Albums, Help overlay, and Copy Progress">Albums &amp; Progress</button>
+        </div>
+        <img id="showcase-img" src="assets/tui-main.png" alt="Copyzer TUI Years and Months view" />
+      </div>
+    </section>
+
+    <section id="install" class="section">
+      <h2>Install on Linux</h2>
+      <p class="section-lead">
+        Copyzer uses <code>ifuse</code>, <code>libimobiledevice</code>, and <code>usbmuxd</code> to mount your iPhone over USB-C without touching originals.
+      </p>
+
+      <div class="install-panel">
+        <div class="showcase-tabs" role="tablist" aria-label="Install methods">
+          <button class="tab-btn active" type="button" data-install="arch">Arch / Omarchy (PKGBUILD)</button>
+          <button class="tab-btn" type="button" data-install="universal">Universal Linux</button>
+          <button class="tab-btn" type="button" data-install="cargo">Cargo</button>
+        </div>
+
+        <div id="install-arch" class="install-pane">
+          <pre><code>sudo pacman -S ifuse libimobiledevice usbmuxd
+git clone https://github.com/phaze7r/copyzer.git
+cd copyzer/pkgbuild
+makepkg -si</code></pre>
+        </div>
+
+        <div id="install-universal" class="install-pane hidden">
+          <pre><code># Install ifuse, libimobiledevice, and usbmuxd via your distro first, then:
+curl -fsSL https://raw.githubusercontent.com/phaze7r/copyzer/main/install.sh | bash</code></pre>
+        </div>
+
+        <div id="install-cargo" class="install-pane hidden">
+          <pre><code>cargo install --git https://github.com/phaze7r/copyzer --tag v0.1</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <section id="features" class="section">
+      <h2>Built for real camera rolls</h2>
+      <p class="section-lead">
+        Designed for multi-gigabyte iPhone libraries over USB-C without GUI bloat or silent overwrites.
+      </p>
+      <div class="grid-3">
+        <article class="card">
+          <h3>Instant DCIM &amp; Year/Month scan</h3>
+          <p>Walks <code>DCIM/</code> using fast metadata stat calls with live progress updates on a background thread, keeping the TUI responsive.</p>
+        </article>
+        <article class="card">
+          <h3>Best-effort iPhone Albums</h3>
+          <p>Reads <code>PhotoData/Photos.sqlite</code> in strict read-only mode when accessible, falling back cleanly to Years &amp; Months and raw folders.</p>
+        </article>
+        <article class="card">
+          <h3>Atomic, idempotent copies</h3>
+          <p>Writes to <code>.part</code>, syncs to disk, and renames atomically. Skips files with matching name &amp; byte size and preserves capture timestamps.</p>
+        </article>
+        <article class="card">
+          <h3>Omarchy live theming</h3>
+          <p>Reads <code>~/.local/state/omarchy/current/theme/colors.toml</code> automatically with a high-contrast slate dark fallback.</p>
+        </article>
+        <article class="card">
+          <h3>Clean RAII unmount</h3>
+          <p>Mounts via <code>ifuse</code> into a temporary directory and unmounts cleanly on exit, error, or cancellation with lazy-unmount fallback.</p>
+        </article>
+        <article class="card">
+          <h3>Headless CLI included</h3>
+          <p>Run <code>copyzer doctor</code>, <code>copyzer scan --json</code>, or <code>copyzer copy</code> in scripts and automated backups.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="shortcuts" class="section">
+      <h2>Keyboard Shortcuts &amp; CLI</h2>
+      <div class="grid-2">
+        <table>
+          <thead>
+            <tr><th>Key</th><th>Action</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><kbd>Tab</kbd> / <kbd>1</kbd>–<kbd>3</kbd></td><td>Switch view (Years/Months, Albums, DCIM)</td></tr>
+            <tr><td><kbd>↑</kbd>/<kbd>k</kbd> <kbd>↓</kbd>/<kbd>j</kbd></td><td>Move cursor</td></tr>
+            <tr><td><kbd>Space</kbd></td><td>Toggle bucket selection</td></tr>
+            <tr><td><kbd>a</kbd></td><td>Select all / none in current view</td></tr>
+            <tr><td><kbd>Enter</kbd> / <kbd>c</kbd></td><td>Copy selected (or highlighted) bucket</td></tr>
+            <tr><td><kbd>d</kbd></td><td>Edit destination path (default <code>~/Pictures/Copyzer</code>)</td></tr>
+            <tr><td><kbd>r</kbd></td><td>Refresh device &amp; rescan</td></tr>
+            <tr><td><kbd>?</kbd></td><td>Toggle help overlay</td></tr>
+            <tr><td><kbd>q</kbd> / <kbd>Esc</kbd></td><td>Cancel active copy or quit cleanly</td></tr>
+          </tbody>
+        </table>
+
+        <div class="install-panel">
+          <h3>CLI Commands</h3>
+          <pre><code># Launch interactive TUI
+copyzer
+
+# Check usbmuxd, ifuse, libimobiledevice, and iPhone status
+copyzer doctor
+
+# Scan connected iPhone and output JSON
+copyzer scan --json
+
+# Copy a specific year/month headlessly
+copyzer copy --year 2026 --month 11</code></pre>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer-inner">
+      <div class="footer-brand">
+        <img src="assets/copyzer.svg" alt="Copyzer logo" />
+        <span><strong>Copyzer</strong> — a <a href="https://texodus.tech" target="_blank" rel="noopener"><strong>Texodus</strong></a> open-source project</span>
+      </div>
+      <div class="footer-links">
+        <a href="https://texodus.tech" target="_blank" rel="noopener">texodus.tech</a>
+        <a href="https://github.com/phaze7r/copyzer" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/phaze7r/copyzer/releases/tag/v0.1" target="_blank" rel="noopener">v0.1 Release</a>
+        <a href="https://github.com/phaze7r/copyzer/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    document.querySelectorAll("[data-shot]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("[data-shot]").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        const img = document.getElementById("showcase-img");
+        img.src = btn.dataset.shot;
+        img.alt = btn.dataset.alt;
+      });
+    });
+
+    document.querySelectorAll("[data-install]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("[data-install]").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        document.querySelectorAll(".install-pane").forEach((p) => p.classList.add("hidden"));
+        document.getElementById("install-" + btn.dataset.install).classList.remove("hidden");
+      });
+    });
+
+    document.querySelectorAll("[data-copy]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const text = document.getElementById(btn.dataset.copy).textContent;
+        try {
+          await navigator.clipboard.writeText(text);
+          const prev = btn.textContent;
+          btn.textContent = "Copied";
+          setTimeout(() => (btn.textContent = prev), 1500);
+        } catch (_) {}
+      });
+    });
+  </script>
+</body>
+</html>
