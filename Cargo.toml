@@ -1,10 +1,10 @@
 [package]
 name = "copyzer"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "Fast, keyboard-first iPhone media copier for Arch Linux and Omarchy"
 license = "MIT"
-repository = "https://github.com/batcillos/copyzer"
+repository = "https://github.com/phaze7r/copyzer"
 keywords = ["iphone", "archlinux", "omarchy", "tui", "media"]
 categories = ["command-line-utilities", "multimedia"]
 
@@ -15,7 +15,6 @@ clap = { version = "4", features = ["derive"] }
 crossterm = "0.28"
 dirs = "6"
 filetime = "0.2"
-kamadak-exif = "0.5"
 ratatui = "0.29"
 rusqlite = { version = "0.32", features = ["bundled"] }
 serde = { version = "1", features = ["derive"] }

@@ -1,6 +1,6 @@
 # Maintainer: Copyzer Contributors
 pkgname=copyzer
-pkgver=0.1.0
+pkgver=0.2.0
 pkgrel=1
 pkgdesc="Fast, keyboard-first iPhone media copier TUI/CLI for Arch Linux and Omarchy"
 arch=('x86_64' 'aarch64')

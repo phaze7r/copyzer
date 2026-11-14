@@ -28,10 +28,10 @@
 
   <!-- Header box -->
   <rect x="24" y="52" width="912" height="42" rx="4" class="panel"/>
-  <text x="38" y="78" class="mono bold accent">COPYZER v0.1</text>
+  <text x="38" y="78" class="mono bold accent">COPYZER v0.2</text>
   <rect x="152" y="61" width="238" height="24" rx="3" fill="#22C55E"/>
   <text x="162" y="78" class="mono bold" fill="#0F172A">iPhone 16 Pro (iOS 27.0.1)</text>
-  <text x="412" y="78" class="mono fg">Dest: /home/batcillos/Pictures/Copyzer</text>
+  <text x="412" y="78" class="mono fg">Dest: ~/Pictures/Copyzer</text>
 
   <!-- Tabs box -->
   <rect x="24" y="102" width="912" height="40" rx="4" class="panel"/>
@@ -86,5 +86,5 @@
   <!-- Footer progress gauge -->
   <rect x="24" y="474" width="912" height="42" rx="4" class="panel"/>
   <rect x="26" y="476" width="620" height="38" rx="2" fill="#2563EB"/>
-  <text x="480" y="500" text-anchor="middle" class="mono bold fg">2,840/4,210 (IMG_8412.HEIC) — Esc/q Cancel</text>
+  <text x="480" y="500" text-anchor="middle" class="mono bold fg">2,840/4,210 @ 142.5 MB/s (IMG_8412.HEIC) — Esc/q Cancel</text>
 </svg>

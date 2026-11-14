@@ -23,6 +23,26 @@ pub struct DeviceInfo {
     pub ios_version: String,
 }
 
+impl DeviceInfo {
+    /// Returns a clean, terminal-safe display name (prefers known hardware model over custom DeviceName).
+    pub fn display_label(&self) -> &str {
+        match self.product_type.as_str() {
+            "iPhone15,4" => "iPhone 15",
+            "iPhone15,5" => "iPhone 15 Plus",
+            "iPhone16,1" => "iPhone 15 Pro",
+            "iPhone16,2" => "iPhone 15 Pro Max",
+            "iPhone17,1" => "iPhone 16 Pro",
+            "iPhone17,2" => "iPhone 16 Pro Max",
+            "iPhone17,3" => "iPhone 16",
+            "iPhone17,4" => "iPhone 16 Plus",
+            "iPhone17,5" => "iPhone 16e",
+            "MountDir" => &self.name,
+            _ if self.name.is_ascii() && !self.name.is_empty() => &self.name,
+            _ => "iPhone",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub enum DeviceStatus {
     Connected(DeviceInfo),
@@ -130,6 +150,26 @@ pub fn detect_device() -> DeviceStatus {
         return DeviceStatus::NoDevice;
     };
 
+    // Fast path: query ideviceinfo directly (1 USB round-trip instead of 2).
+    if let Ok(info_out) = Command::new("ideviceinfo").args(["-u", &udid]).output() {
+        let stdout = String::from_utf8_lossy(&info_out.stdout);
+        let stderr = String::from_utf8_lossy(&info_out.stderr);
+        let combined = format!("{stdout}\n{stderr}");
+
+        if info_out.status.success() && stdout.contains("ProductVersion:") {
+            let info = parse_ideviceinfo(&stdout, &udid);
+            return DeviceStatus::Connected(info);
+        }
+
+        if is_untrusted_output(&combined) {
+            return DeviceStatus::Untrusted {
+                udid,
+                message: UNTRUSTED_MESSAGE.to_string(),
+            };
+        }
+    }
+
+    // Fallback: explicit pair validation to distinguish untrusted vs disconnected.
     let Ok(pair_out) = Command::new("idevicepair")
         .args(["validate", "-u", &udid])
         .output()
@@ -149,34 +189,25 @@ pub fn detect_device() -> DeviceStatus {
         };
     }
 
-    let Ok(info_out) = Command::new("ideviceinfo").args(["-u", &udid]).output() else {
-        return DeviceStatus::NoDevice;
-    };
-    if !info_out.status.success() {
-        let info_combined = format!(
-            "{}\n{}",
-            String::from_utf8_lossy(&info_out.stdout),
-            String::from_utf8_lossy(&info_out.stderr)
-        );
-        if is_untrusted_output(&info_combined) {
-            return DeviceStatus::Untrusted {
-                udid,
-                message: UNTRUSTED_MESSAGE.to_string(),
-            };
-        }
-        return DeviceStatus::NoDevice;
-    }
-
-    let info = parse_ideviceinfo(&String::from_utf8_lossy(&info_out.stdout), &udid);
-    DeviceStatus::Connected(info)
+    DeviceStatus::NoDevice
 }
 
 pub fn mount_iphone(udid: &str) -> Result<MountGuard> {
+    cleanup_stale_mounts();
+
+    let base_dir = env::var_os("XDG_RUNTIME_DIR")
+        .map(PathBuf::from)
+        .filter(|p| p.is_dir())
+        .unwrap_or_else(env::temp_dir);
+
     let dir = tempfile::Builder::new()
         .prefix("copyzer-")
-        .tempdir()
+        .tempdir_in(&base_dir)
+        .or_else(|_| tempfile::Builder::new().prefix("copyzer-").tempdir())
         .context("failed to create temporary mount directory")?
         .keep();
+
+    let _ = std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700));
 
     let output = match Command::new("ifuse").arg("-u").arg(udid).arg(&dir).output() {
         Ok(out) => out,
@@ -201,6 +232,44 @@ pub fn mount_iphone(udid: &str) -> Result<MountGuard> {
         path: dir,
         owns_mount: true,
     })
+}
+
+/// Cleans up orphaned `copyzer-*` mount directories left behind by killed sessions.
+fn cleanup_stale_mounts() {
+    let mut parents = vec![env::temp_dir()];
+    if let Some(xdg) = env::var_os("XDG_RUNTIME_DIR").map(PathBuf::from) {
+        if xdg.is_dir() && !parents.contains(&xdg) {
+            parents.push(xdg);
+        }
+    }
+
+    for parent in parents {
+        let Ok(entries) = std::fs::read_dir(&parent) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let name = entry.file_name();
+            let Some(name_str) = name.to_str() else {
+                continue;
+            };
+            if !name_str.starts_with("copyzer-") {
+                continue;
+            }
+            let path = entry.path();
+            match std::fs::read_dir(&path) {
+                Err(_) => {
+                    // Stale/disconnected FUSE mount (e.g. ENOTCONN / EIO)
+                    let _ = Command::new("fusermount3").arg("-uz").arg(&path).status();
+                    let _ = std::fs::remove_dir(&path);
+                }
+                Ok(mut rd) => {
+                    if rd.next().is_none() {
+                        let _ = std::fs::remove_dir(&path);
+                    }
+                }
+            }
+        }
+    }
 }
 
 pub fn parse_udid_list(raw: &str) -> Option<String> {
@@ -262,7 +331,7 @@ mod tests {
     #[test]
     fn parse_ideviceinfo_extracts_fields_with_fallbacks() {
         let sample = "\
-DeviceName: Batcillos iPhone 16 Pro Max
+DeviceName: User iPhone 16 Pro Max
 ProductType: iPhone17,2
 ProductVersion: 18.1.1
 SerialNumber: ABC123
@@ -272,11 +341,12 @@ SerialNumber: ABC123
             info,
             DeviceInfo {
                 udid: "00008140-TEST".to_string(),
-                name: "Batcillos iPhone 16 Pro Max".to_string(),
+                name: "User iPhone 16 Pro Max".to_string(),
                 product_type: "iPhone17,2".to_string(),
                 ios_version: "18.1.1".to_string(),
             }
         );
+        assert_eq!(info.display_label(), "iPhone 16 Pro Max");
 
         let partial = "DeviceName:\n";
         let fallback = parse_ideviceinfo(partial, "UDID-FALLBACK");

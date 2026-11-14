@@ -21,8 +21,11 @@ pub fn load_albums(mount_root: &Path, index: &ScanIndex) -> AlbumScanResult {
         };
     }
 
-    let flags = OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX;
-    let conn = match Connection::open_with_flags(&db_path, flags) {
+    let base_flags = OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX;
+    let uri = format!("file:{}?immutable=1", db_path.display());
+    let conn = match Connection::open_with_flags(&uri, base_flags | OpenFlags::SQLITE_OPEN_URI)
+        .or_else(|_| Connection::open_with_flags(&db_path, base_flags))
+    {
         Ok(c) => c,
         Err(err) => {
             return AlbumScanResult {
@@ -33,6 +36,7 @@ pub fn load_albums(mount_root: &Path, index: &ScanIndex) -> AlbumScanResult {
             };
         }
     };
+    let _ = conn.execute_batch("PRAGMA query_only = ON; PRAGMA cache_size = -16000;");
 
     match query_albums(&conn, index) {
         Ok(albums) => AlbumScanResult {
@@ -183,6 +187,8 @@ fn find_album_join_table(conn: &Connection) -> Result<(String, String, String), 
         .collect::<Result<_, _>>()
         .map_err(|e| e.to_string())?;
 
+    let mut fallback = None;
+
     for table in names {
         if !is_safe_ident(&table) {
             continue;
@@ -205,11 +211,19 @@ fn find_album_join_table(conn: &Connection) -> Result<(String, String, String), 
             .cloned();
 
         if let (Some(al), Some(ast)) = (album_col, asset_col) {
-            return Ok((table, al, ast));
+            let has_rows = conn
+                .query_row(&format!("SELECT 1 FROM \"{table}\" LIMIT 1"), [], |_| Ok(()))
+                .is_ok();
+            if has_rows {
+                return Ok((table, al, ast));
+            }
+            if fallback.is_none() {
+                fallback = Some((table, al, ast));
+            }
         }
     }
 
-    Err("no album-to-asset join table found".to_string())
+    fallback.ok_or_else(|| "no album-to-asset join table found".to_string())
 }
 
 fn is_safe_ident(s: &str) -> bool {

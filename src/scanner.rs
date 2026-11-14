@@ -15,6 +15,7 @@ pub struct MediaItem {
     pub rel_path: String,
     pub filename: String,
     pub size: u64,
+    pub mtime: i64,
     pub year: i32,
     pub month: u32,
     pub dcim_folder: String,
@@ -70,6 +71,7 @@ where
     let mut total_bytes = 0u64;
 
     let walker = WalkDir::new(&dcim_dir)
+        .follow_links(false)
         .sort_by_file_name()
         .into_iter()
         .filter_entry(|entry| {
@@ -97,6 +99,7 @@ where
             continue;
         };
         let size = metadata.len();
+        let mtime = filetime::FileTime::from_last_modification_time(&metadata).unix_seconds();
         let (year, month) = mtime_year_month(&metadata);
 
         let rel_path = path
@@ -113,6 +116,7 @@ where
             rel_path,
             filename,
             size,
+            mtime,
             year,
             month,
             dcim_folder,

@@ -44,10 +44,11 @@ pub fn render(frame: &mut Frame<'_>, app: &AppState) {
 fn render_header(frame: &mut Frame<'_>, area: Rect, app: &AppState) {
     let (badge_text, badge_color) = match &app.device_status {
         DeviceStatus::Connected(info) => {
+            let display_name = info.display_label();
             let label = if info.ios_version == "-" {
-                format!(" {} ", info.name)
+                format!(" {display_name} ")
             } else {
-                format!(" {} (iOS {}) ", info.name, info.ios_version)
+                format!(" {display_name} (iOS {}) ", info.ios_version)
             };
             (label, app.theme.success)
         }
@@ -65,14 +66,14 @@ fn render_header(frame: &mut Frame<'_>, area: Rect, app: &AppState) {
         )
     } else {
         Span::styled(
-            format!("Dest: {}", app.dest_dir.display()),
+            format!("Dest: {}", app.display_dest()),
             Style::default().fg(app.theme.foreground),
         )
     };
 
     let line = Line::from(vec![
         Span::styled(
-            " COPYZER v0.1 ",
+            " COPYZER v0.2 ",
             Style::default()
                 .fg(app.theme.accent)
                 .add_modifier(Modifier::BOLD),
@@ -247,13 +248,20 @@ fn render_footer(frame: &mut Frame<'_>, area: Rect, app: &AppState) {
 
     if let Some(progress) = &app.copy_progress {
         let done = progress.copied_files + progress.skipped_files;
-        let ratio = if progress.total_files == 0 {
+        let ratio = if progress.total_bytes > 0 && progress.copied_bytes > 0 {
+            (progress.copied_bytes as f64 / progress.total_bytes as f64).clamp(0.0, 1.0)
+        } else if progress.total_files == 0 {
             1.0
         } else {
             (done as f64 / progress.total_files as f64).clamp(0.0, 1.0)
         };
+        let speed_str = if progress.bytes_per_sec > 0 {
+            format!(" @ {}/s", scanner::format_bytes(progress.bytes_per_sec))
+        } else {
+            String::new()
+        };
         let label = format!(
-            "{done}/{} ({}) — Esc/q Cancel",
+            "{done}/{}{speed_str} ({}) — Esc/q Cancel",
             progress.total_files, progress.current_file
         );
         let gauge = Gauge::default()

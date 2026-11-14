@@ -51,6 +51,7 @@ pub struct RefreshOutcome {
 pub enum RefreshEvent {
     Status(String),
     DeviceStatus(device::DeviceStatus),
+    ScanReady(Box<scanner::ScanIndex>),
     Done(Box<RefreshOutcome>),
 }
 
@@ -119,6 +120,19 @@ impl AppState {
         self.refresh_rx.is_some()
     }
 
+    /// Formats `dest_dir` with `~` in place of the user's home directory so local usernames aren't shown on screen.
+    pub fn display_dest(&self) -> String {
+        if let Some(home) = dirs::home_dir() {
+            if let Ok(rel) = self.dest_dir.strip_prefix(&home) {
+                if rel.as_os_str().is_empty() {
+                    return "~".to_string();
+                }
+                return format!("~/{}", rel.display());
+            }
+        }
+        self.dest_dir.display().to_string()
+    }
+
     pub fn refresh(&mut self) {
         self.scan_index = None;
         self.albums.clear();
@@ -127,6 +141,7 @@ impl AppState {
         let outcome = execute_refresh(
             self.mount_dir_override.clone(),
             prev_guard,
+            |_| {},
             |_| {},
             |_| {},
         );
@@ -157,6 +172,9 @@ impl AppState {
                 |status| {
                     let _ = tx.send(RefreshEvent::DeviceStatus(status));
                 },
+                |index| {
+                    let _ = tx.send(RefreshEvent::ScanReady(Box::new(index)));
+                },
             );
             let _ = tx.send(RefreshEvent::Done(Box::new(outcome)));
         });
@@ -168,6 +186,7 @@ impl AppState {
         };
 
         let mut finished = None;
+        let mut scan_updated = false;
         while let Ok(ev) = rx.try_recv() {
             match ev {
                 RefreshEvent::Status(msg) => {
@@ -175,6 +194,10 @@ impl AppState {
                 }
                 RefreshEvent::DeviceStatus(status) => {
                     self.device_status = status;
+                }
+                RefreshEvent::ScanReady(index) => {
+                    self.scan_index = Some(*index);
+                    scan_updated = true;
                 }
                 RefreshEvent::Done(outcome) => {
                     finished = Some(*outcome);
@@ -185,6 +208,8 @@ impl AppState {
         if let Some(done) = finished {
             self.refresh_rx = None;
             self.apply_refresh_outcome(done);
+        } else if scan_updated {
+            self.clamp_cursor();
         }
     }
 
@@ -358,6 +383,7 @@ impl AppState {
             total_files,
             copied_bytes: 0,
             total_bytes,
+            bytes_per_sec: 0,
         });
         self.copy_rx = Some(rx);
         self.status_msg = format!(
@@ -423,8 +449,8 @@ impl AppState {
                 KeyCode::Enter => {
                     let trimmed = self.dest_input.trim();
                     if !trimmed.is_empty() {
-                        self.dest_dir = PathBuf::from(trimmed);
-                        self.status_msg = format!("Destination set to {}", self.dest_dir.display());
+                        self.dest_dir = expand_tilde(trimmed);
+                        self.status_msg = format!("Destination set to {}", self.display_dest());
                     }
                     self.editing_dest = false;
                 }
@@ -498,7 +524,7 @@ impl AppState {
             }
             KeyCode::Char('d') => {
                 if !self.is_copying() {
-                    self.dest_input = self.dest_dir.display().to_string();
+                    self.dest_input = self.display_dest();
                     self.editing_dest = true;
                 }
             }
@@ -522,6 +548,7 @@ fn execute_refresh(
     prev_guard: Option<device::MountGuard>,
     on_status: impl Fn(String),
     on_device: impl Fn(device::DeviceStatus),
+    on_scan: impl Fn(scanner::ScanIndex),
 ) -> RefreshOutcome {
     drop(prev_guard);
 
@@ -540,7 +567,7 @@ fn execute_refresh(
         on_device(status.clone());
         match &status {
             device::DeviceStatus::Connected(info) => {
-                on_status(format!("Mounting {}...", info.name));
+                on_status(format!("Mounting {}...", info.display_label()));
                 match device::mount_iphone(&info.udid) {
                     Ok(guard) => (status, guard),
                     Err(err) => {
@@ -595,6 +622,7 @@ fn execute_refresh(
         on_status(format!("Scanning DCIM/ ({count} files)..."));
     }) {
         Ok(index) => {
+            on_scan(index.clone());
             on_status(format!("Loading albums ({} files)...", index.items.len()));
             let album_res = albums::load_albums(guard.path(), &index);
             let status_msg = format!(
@@ -620,6 +648,19 @@ fn execute_refresh(
             status_msg: format!("Scan failed: {err}"),
         },
     }
+}
+
+fn expand_tilde(input: &str) -> PathBuf {
+    if input == "~" {
+        if let Some(home) = dirs::home_dir() {
+            return home;
+        }
+    } else if let Some(rest) = input.strip_prefix("~/") {
+        if let Some(home) = dirs::home_dir() {
+            return home.join(rest);
+        }
+    }
+    PathBuf::from(input)
 }
 
 fn default_dest_dir() -> PathBuf {
