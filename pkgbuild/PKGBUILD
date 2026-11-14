@@ -9,6 +9,7 @@ license=('MIT')
 depends=('ifuse' 'libimobiledevice' 'usbmuxd')
 makedepends=('cargo')
 optdepends=('xdg-terminal-exec: launch TUI from desktop entry')
+options=('!lto')
 
 build() {
   cd "$startdir/.."

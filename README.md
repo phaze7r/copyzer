@@ -13,11 +13,10 @@
 
 ## Prerequisites (Arch Linux / Omarchy)
 
-Install the required iOS USB stack and enable `usbmuxd`:
+Install the required iOS USB stack (`usbmuxd` starts automatically via udev when you plug in an iPhone):
 
 ```bash
 sudo pacman -S ifuse libimobiledevice usbmuxd
-sudo systemctl enable --now usbmuxd
 ```
 
 Plug in your iPhone via USB, unlock it, and tap **Trust** if prompted.
