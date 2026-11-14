@@ -9,6 +9,8 @@
 /pkgbuild/*.pkg.tar.xz
 /pkgbuild/*.tar.gz
 /pkgbuild/*.tar.zst
+/pkgbuild/*.db*
+/pkgbuild/*.files*
 *.pkg.tar.zst
 
 # Copyzer runtime & temp artifacts

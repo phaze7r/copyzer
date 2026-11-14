@@ -203,25 +203,28 @@
 
       <div class="install-panel">
         <div class="tab-strip" role="tablist" aria-label="Install methods">
-          <button class="tab-btn active" type="button" data-install="arch">Arch / Omarchy (PKGBUILD)</button>
+          <button class="tab-btn active" type="button" data-install="arch">Arch / Omarchy (pacman &amp; yay)</button>
           <button class="tab-btn" type="button" data-install="universal">Universal Linux</button>
-          <button class="tab-btn" type="button" data-install="cargo">Cargo</button>
+          <button class="tab-btn" type="button" data-install="cargo">Cargo / PKGBUILD</button>
         </div>
 
         <div id="install-arch" class="install-pane">
-          <pre><code>sudo pacman -S ifuse libimobiledevice usbmuxd
-git clone https://github.com/phaze7r/copyzer.git
-cd copyzer/pkgbuild
-makepkg -si</code></pre>
+          <pre><code># Adds the [copyzer] repo to /etc/pacman.conf and installs via pacman
+# Future updates happen automatically on `sudo pacman -Syu` or `yay -Syu`!
+curl -fsSL https://raw.githubusercontent.com/phaze7r/copyzer/main/install.sh | bash</code></pre>
         </div>
 
         <div id="install-universal" class="install-pane hidden">
           <pre><code># Install ifuse, libimobiledevice, and usbmuxd via your package manager first, then:
-curl -fsSL https://raw.githubusercontent.com/phaze7r/copyzer/main/install.sh | bash</code></pre>
+curl -fsSL https://raw.githubusercontent.com/phaze7r/copyzer/main/install.sh | bash -s -- --tarball</code></pre>
         </div>
 
         <div id="install-cargo" class="install-pane hidden">
-          <pre><code>cargo install --git https://github.com/phaze7r/copyzer --tag v0.2</code></pre>
+          <pre><code># Build via Cargo:
+cargo install --git https://github.com/phaze7r/copyzer --tag v0.2
+
+# Or build local Arch PKGBUILD:
+git clone https://github.com/phaze7r/copyzer.git && cd copyzer/pkgbuild && makepkg -si</code></pre>
         </div>
       </div>
     </section>

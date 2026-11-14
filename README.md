@@ -60,15 +60,31 @@ Plug in your iPhone via USB-C, unlock it, and tap **Trust** if prompted.
 
 ## Install
 
-### Option 1: Arch Linux / Omarchy (`PKGBUILD`)
+### Option 1: Arch Linux / Omarchy (Pacman / `yay -Syu` Repo)
+
+Run the installer once to add the `[copyzer]` repository to `/etc/pacman.conf` and install `copyzer`:
 
 ```bash
-git clone https://github.com/phaze7r/copyzer.git
-cd copyzer/pkgbuild
-makepkg -si
+curl -fsSL https://raw.githubusercontent.com/phaze7r/copyzer/main/install.sh | bash
 ```
 
-This installs `/usr/bin/copyzer`, `/usr/share/applications/copyzer.desktop`, and `/usr/share/icons/hicolor/scalable/apps/copyzer.svg` (available in Omarchy's `Super + Space` launcher).
+Or add the repository manually to `/etc/pacman.conf`:
+
+```ini
+[copyzer]
+SigLevel = Optional TrustAll
+Server = https://github.com/phaze7r/copyzer/releases/latest/download
+```
+
+Then install and update just like any other Arch package:
+
+```bash
+sudo pacman -Sy copyzer
+# Future updates happen automatically with:
+sudo pacman -Syu   # or: yay -Syu
+```
+
+*(You can also build locally from source with `cd pkgbuild && makepkg -si`.)*
 
 ### Option 2: Universal Linux (`install.sh` / Prebuilt Release)
 

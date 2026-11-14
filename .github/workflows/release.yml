@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   build-linux:
-    name: Build Linux (${{ matrix.target }})
+    name: Build Universal Linux (${{ matrix.arch }})
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -54,9 +54,46 @@ jobs:
           tar -czf "${STAGE}.tar.gz" "${STAGE}"
           sha256sum "${STAGE}.tar.gz" > "${STAGE}.tar.gz.sha256"
 
-      - name: Upload release assets
+      - name: Upload universal release assets
         uses: softprops/action-gh-release@v2
         with:
           files: |
             copyzer-*-linux-*.tar.gz
             copyzer-*-linux-*.tar.gz.sha256
+
+  build-arch-repo:
+    name: Build Arch Pacman Package & Repo DB (x86_64)
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:base-devel
+    steps:
+      - name: Install build dependencies
+        run: |
+          pacman -Syu --noconfirm git rust ifuse libimobiledevice usbmuxd
+          useradd -m builder
+          chown -R builder:builder .
+
+      - uses: actions/checkout@v4
+
+      - name: Build PKGBUILD and generate copyzer.db
+        run: |
+          chown -R builder:builder .
+          su builder -c "cd pkgbuild && makepkg -sf --noconfirm"
+          cd pkgbuild
+          rm -f copyzer-debug-*.pkg.tar.zst
+          PKG_FILE=$(ls copyzer-*.pkg.tar.zst | head -n 1)
+          repo-add copyzer.db.tar.gz "${PKG_FILE}"
+          # Replace symlinks with actual files so GitHub Releases serves copyzer.db directly
+          rm -f copyzer.db copyzer.files
+          cp -f copyzer.db.tar.gz copyzer.db
+          cp -f copyzer.files.tar.gz copyzer.files
+
+      - name: Upload Arch Pacman repo assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            pkgbuild/copyzer-*.pkg.tar.zst
+            pkgbuild/copyzer.db
+            pkgbuild/copyzer.db.tar.gz
+            pkgbuild/copyzer.files
+            pkgbuild/copyzer.files.tar.gz

@@ -5,6 +5,29 @@ REPO="phaze7r/copyzer"
 VERSION="${COPYZER_VERSION:-v0.2}"
 ARCH="$(uname -m)"
 
+# On Arch Linux / Omarchy (unless --user or --tarball is requested), configure the [copyzer] pacman repo
+if [[ -f /etc/arch-release && "${1:-}" != "--user" && "${1:-}" != "--tarball" ]]; then
+  echo "Detected Arch Linux / Omarchy — configuring [copyzer] Pacman repository..."
+  SUDO=""
+  if [[ "$(id -u)" -ne 0 ]]; then
+    SUDO="sudo"
+  fi
+
+  if ! grep -q '^\[copyzer\]' /etc/pacman.conf; then
+    $SUDO tee -a /etc/pacman.conf >/dev/null <<EOF
+
+[copyzer]
+SigLevel = Optional TrustAll
+Server = https://github.com/${REPO}/releases/latest/download
+EOF
+    echo "Added [copyzer] repository to /etc/pacman.conf"
+  fi
+
+  $SUDO pacman -Sy --noconfirm copyzer
+  echo "Installed copyzer via pacman! Future updates will install automatically with 'sudo pacman -Syu' or 'yay -Syu'."
+  exit 0
+fi
+
 case "$ARCH" in
   x86_64|amd64) ARCH="x86_64" ;;
   *)
