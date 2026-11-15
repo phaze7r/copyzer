@@ -73,7 +73,7 @@ fn render_header(frame: &mut Frame<'_>, area: Rect, app: &AppState) {
 
     let line = Line::from(vec![
         Span::styled(
-            " COPYZER v0.2.1 ",
+            concat!(" COPYZER v", env!("CARGO_PKG_VERSION"), " "),
             Style::default()
                 .fg(app.theme.accent)
                 .add_modifier(Modifier::BOLD),
