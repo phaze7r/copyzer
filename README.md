@@ -7,7 +7,7 @@
   </p>
 
   <p>
-    <a href="https://github.com/phaze7r/copyzer/releases/tag/v0.2.1"><img src="https://img.shields.io/badge/release-v0.2.1-2563EB?style=flat-square" alt="Release v0.2.1" /></a>
+    <a href="https://github.com/phaze7r/copyzer/releases/tag/v0.2.2"><img src="https://img.shields.io/badge/release-v0.2.2-2563EB?style=flat-square" alt="Release v0.2.2" /></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-F59E0B?style=flat-square" alt="MIT License" /></a>
     <a href="https://phaze7r.github.io/copyzer/"><img src="https://img.shields.io/badge/site-GitHub_Pages-0F172A?style=flat-square" alt="Website" /></a>
     <a href="https://texodus.tech"><img src="https://img.shields.io/badge/brand-texodus.tech-1E293B?style=flat-square" alt="Texodus" /></a>
@@ -24,7 +24,7 @@
 | :---: | :---: |
 | ![Copyzer Years and Months TUI](docs/assets/tui-main.png) | ![Copyzer Albums and Progress TUI](docs/assets/tui-progress.png) |
 
-## What's New in v0.2.1
+## What's New in v0.2.2
 
 - **User-Created Albums Fix (`#1`)** — Stages `PhotoData/Photos.sqlite` (+ `-wal` / `-shm`) locally before querying (with automatic `afcclient` fallback when FUSE blocks direct SQLite reads), filters strictly to user-created albums (`ZKIND = 2`), and verifies the active `Z_*ASSETS` join table against `ZGENERICALBUM` (`ZASSET` and `ZGENERICASSET`).
 - **macOS & Windows Prebuilt Releases** — Ships native prebuilt binaries for **Linux (`x86_64`)**, **macOS (`aarch64` Apple Silicon & `x86_64`)**, and **Windows (`x86_64`)**, with `afcclient` fallback when `ifuse` is not installed.
@@ -95,7 +95,7 @@ sudo pacman -Syu   # or: yay -Syu
 
 ### Option 2: Universal Linux & macOS (`install.sh` / Prebuilt Release)
 
-Download and install the `v0.2.1` release binary:
+Download and install the `v0.2.2` release binary:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/phaze7r/copyzer/main/install.sh | bash
@@ -105,12 +105,12 @@ Pass `--user` (or run without root) to install into `~/.local/bin` instead of `/
 
 ### Option 3: Windows (`x86_64` Prebuilt ZIP)
 
-Download `copyzer-v0.2.1-windows-x86_64.zip` from the [v0.2.1 Releases page](https://github.com/phaze7r/copyzer/releases/tag/v0.2.1), extract `copyzer.exe`, and run it in Windows Terminal or PowerShell.
+Download `copyzer-v0.2.2-windows-x86_64.zip` from the [v0.2.2 Releases page](https://github.com/phaze7r/copyzer/releases/tag/v0.2.2), extract `copyzer.exe`, and run it in Windows Terminal or PowerShell.
 
 ### Option 4: Cargo
 
 ```bash
-cargo install --git https://github.com/phaze7r/copyzer --tag v0.2.1
+cargo install --git https://github.com/phaze7r/copyzer --tag v0.2.2
 ```
 
 ## Keyboard Shortcuts (TUI)
