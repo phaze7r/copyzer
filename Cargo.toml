@@ -1,8 +1,8 @@
 [package]
 name = "copyzer"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
-description = "Fast, keyboard-first iPhone media copier for Arch Linux and Omarchy"
+description = "Fast, keyboard-first iPhone media copier for Linux, macOS, and Windows"
 license = "MIT"
 repository = "https://github.com/phaze7r/copyzer"
 keywords = ["iphone", "archlinux", "omarchy", "tui", "media"]

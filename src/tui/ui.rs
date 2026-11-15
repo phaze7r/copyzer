@@ -73,7 +73,7 @@ fn render_header(frame: &mut Frame<'_>, area: Rect, app: &AppState) {
 
     let line = Line::from(vec![
         Span::styled(
-            " COPYZER v0.2 ",
+            " COPYZER v0.2.1 ",
             Style::default()
                 .fg(app.theme.accent)
                 .add_modifier(Modifier::BOLD),
@@ -217,7 +217,7 @@ fn empty_state_message(app: &AppState) -> (String, ratatui::style::Color) {
     match &app.device_status {
         DeviceStatus::MissingTools(tools) => (
             format!(
-                "\nMissing tools: {} — install via pacman (libimobiledevice, ifuse)",
+                "\nMissing tools: {} — install libimobiledevice & ifuse",
                 tools.join(", ")
             ),
             app.theme.error,

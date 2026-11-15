@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Tag name to build (e.g. v0.2)"
+        description: "Tag name to build (e.g. v0.2.1)"
         required: false
-        default: "v0.2"
+        default: "v0.2.1"
 
 permissions:
   contents: write
@@ -32,9 +32,6 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
-      - name: Install SQLite dev headers
-        run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev pkg-config
-
       - name: Run tests
         run: cargo test --locked
 
@@ -54,12 +51,94 @@ jobs:
           tar -czf "${STAGE}.tar.gz" "${STAGE}"
           sha256sum "${STAGE}.tar.gz" > "${STAGE}.tar.gz.sha256"
 
-      - name: Upload universal release assets
+      - name: Upload universal Linux release assets
         uses: softprops/action-gh-release@v2
         with:
           files: |
             copyzer-*-linux-*.tar.gz
             copyzer-*-linux-*.tar.gz.sha256
+
+  build-macos:
+    name: Build macOS (${{ matrix.arch }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: macos-14
+            target: aarch64-apple-darwin
+            arch: aarch64
+          - os: macos-14
+            target: x86_64-apple-darwin
+            arch: x86_64
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Run tests
+        if: matrix.arch == 'aarch64'
+        run: cargo test --locked
+
+      - name: Build release binary
+        run: cargo build --release --locked --target ${{ matrix.target }}
+
+      - name: Package macOS release archive
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          STAGE="copyzer-${TAG}-macos-${{ matrix.arch }}"
+          mkdir -p "${STAGE}"
+          cp "target/${{ matrix.target }}/release/copyzer" "${STAGE}/copyzer"
+          cp LICENSE README.md "${STAGE}/"
+          tar -czf "${STAGE}.tar.gz" "${STAGE}"
+          shasum -a 256 "${STAGE}.tar.gz" > "${STAGE}.tar.gz.sha256"
+
+      - name: Upload macOS release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            copyzer-*-macos-*.tar.gz
+            copyzer-*-macos-*.tar.gz.sha256
+
+  build-windows:
+    name: Build Windows (x86_64)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Run tests
+        run: cargo test --locked
+
+      - name: Build release binary
+        run: cargo build --release --locked --target x86_64-pc-windows-msvc
+
+      - name: Package Windows release archive
+        shell: pwsh
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          $stage = "copyzer-$env:TAG-windows-x86_64"
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+          Copy-Item "target/x86_64-pc-windows-msvc/release/copyzer.exe" "$stage/copyzer.exe"
+          Copy-Item "LICENSE", "README.md" "$stage/"
+          Compress-Archive -Path $stage -DestinationPath "$stage.zip" -Force
+          $hash = (Get-FileHash "$stage.zip" -Algorithm SHA256).Hash.ToLower()
+          "$hash  $stage.zip" | Out-File -Encoding ascii "$stage.zip.sha256"
+
+      - name: Upload Windows release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            copyzer-*-windows-*.zip
+            copyzer-*-windows-*.zip.sha256
 
   build-arch-repo:
     name: Build Arch Pacman Package & Repo DB (x86_64)

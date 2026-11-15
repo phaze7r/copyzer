@@ -1,18 +1,39 @@
 use anyhow::{bail, Context, Result};
 use serde::Serialize;
 use std::env;
+#[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-const REQUIRED_TOOLS: &[&str] = &["idevice_id", "ideviceinfo", "idevicepair", "ifuse"];
+#[cfg(target_os = "windows")]
+const REQUIRED_TOOLS: &[&str] = &["idevice_id", "ideviceinfo", "idevicepair", "afcclient"];
+#[cfg(not(target_os = "windows"))]
+const REQUIRED_TOOLS: &[&str] = &["idevice_id", "ideviceinfo", "idevicepair"];
+
+#[cfg(target_os = "linux")]
 const DOCTOR_TOOLS: &[&str] = &[
     "idevice_id",
     "ideviceinfo",
     "idevicepair",
     "ifuse",
+    "afcclient",
     "fusermount3",
 ];
+#[cfg(target_os = "macos")]
+const DOCTOR_TOOLS: &[&str] = &[
+    "idevice_id",
+    "ideviceinfo",
+    "idevicepair",
+    "ifuse",
+    "afcclient",
+    "umount",
+];
+#[cfg(target_os = "windows")]
+const DOCTOR_TOOLS: &[&str] = &["idevice_id", "ideviceinfo", "idevicepair", "afcclient"];
+#[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
+const DOCTOR_TOOLS: &[&str] = &["idevice_id", "ideviceinfo", "idevicepair", "ifuse", "afcclient"];
+
 const UNTRUSTED_MESSAGE: &str = "Unlock your iPhone and tap Trust";
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
@@ -36,6 +57,10 @@ impl DeviceInfo {
             "iPhone17,3" => "iPhone 16",
             "iPhone17,4" => "iPhone 16 Plus",
             "iPhone17,5" => "iPhone 16e",
+            "iPhone18,1" => "iPhone 17 Pro",
+            "iPhone18,2" => "iPhone 17 Pro Max",
+            "iPhone18,3" => "iPhone 17",
+            "iPhone18,4" => "iPhone 17 Air",
             "MountDir" => &self.name,
             _ if self.name.is_ascii() && !self.name.is_empty() => &self.name,
             _ => "iPhone",
@@ -57,11 +82,13 @@ pub struct DoctorReport {
     pub status: DeviceStatus,
 }
 
-/// RAII guard for an `ifuse` mount directory.
-/// Unmounts and removes the temporary mount directory on drop when owned.
+/// RAII guard for an `ifuse` mount directory or an `afcclient` staged directory.
+/// Unmounts (when FUSE-mounted) and removes the temporary directory on drop when owned.
 pub struct MountGuard {
     path: PathBuf,
+    udid: Option<String>,
     owns_mount: bool,
+    is_staged_dir: bool,
 }
 
 impl MountGuard {
@@ -69,11 +96,17 @@ impl MountGuard {
         &self.path
     }
 
+    pub fn udid(&self) -> Option<&str> {
+        self.udid.as_deref()
+    }
+
     /// Wraps an already-mounted directory (e.g. `--mount-dir`) without unmounting on drop.
     pub fn from_existing(path: PathBuf) -> Self {
         Self {
             path,
+            udid: None,
             owns_mount: false,
+            is_staged_dir: false,
         }
     }
 }
@@ -81,6 +114,11 @@ impl MountGuard {
 impl Drop for MountGuard {
     fn drop(&mut self) {
         if !self.owns_mount {
+            return;
+        }
+
+        if self.is_staged_dir {
+            let _ = std::fs::remove_dir_all(&self.path);
             return;
         }
 
@@ -97,6 +135,11 @@ impl Drop for MountGuard {
             || Command::new("umount")
                 .arg(&self.path)
                 .status()
+                .is_ok_and(|s| s.success())
+            || Command::new("diskutil")
+                .args(["unmount", "force"])
+                .arg(&self.path)
+                .status()
                 .is_ok_and(|s| s.success());
 
         if unmounted {
@@ -110,11 +153,25 @@ fn tool_in_path(tool: &str) -> bool {
         return false;
     };
 
+    #[cfg(target_os = "windows")]
+    let candidates = [format!("{tool}.exe"), tool.to_string()];
+    #[cfg(not(target_os = "windows"))]
+    let candidates = [tool.to_string()];
+
     env::split_paths(&path_var).any(|dir| {
-        let candidate = dir.join(tool);
-        candidate
-            .metadata()
-            .is_ok_and(|meta| meta.is_file() && (meta.permissions().mode() & 0o111 != 0))
+        candidates.iter().any(|name| {
+            let candidate = dir.join(name);
+            #[cfg(unix)]
+            {
+                candidate
+                    .metadata()
+                    .is_ok_and(|meta| meta.is_file() && (meta.permissions().mode() & 0o111 != 0))
+            }
+            #[cfg(not(unix))]
+            {
+                candidate.metadata().is_ok_and(|meta| meta.is_file())
+            }
+        })
     })
 }
 
@@ -129,11 +186,16 @@ pub fn doctor_report() -> DoctorReport {
 }
 
 pub fn detect_device() -> DeviceStatus {
-    let missing: Vec<String> = REQUIRED_TOOLS
+    let mut missing: Vec<String> = REQUIRED_TOOLS
         .iter()
         .filter(|&&tool| !tool_in_path(tool))
         .map(|&tool| tool.to_string())
         .collect();
+
+    #[cfg(not(target_os = "windows"))]
+    if !tool_in_path("ifuse") && !tool_in_path("afcclient") {
+        missing.push("ifuse (or afcclient)".to_string());
+    }
 
     if !missing.is_empty() {
         return DeviceStatus::MissingTools(missing);
@@ -207,31 +269,87 @@ pub fn mount_iphone(udid: &str) -> Result<MountGuard> {
         .context("failed to create temporary mount directory")?
         .keep();
 
-    let _ = std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700));
-
-    let output = match Command::new("ifuse").arg("-u").arg(udid).arg(&dir).output() {
-        Ok(out) => out,
-        Err(err) => {
-            let _ = std::fs::remove_dir(&dir);
-            return Err(err).context("failed to execute ifuse");
-        }
-    };
-
-    if !output.status.success() {
-        let _ = std::fs::remove_dir(&dir);
-        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-        let detail = if stderr.is_empty() {
-            format!("exit status {}", output.status)
-        } else {
-            stderr
-        };
-        bail!("ifuse failed to mount device {udid}: {detail}");
+    #[cfg(unix)]
+    {
+        let _ = std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700));
     }
 
-    Ok(MountGuard {
-        path: dir,
-        owns_mount: true,
-    })
+    if tool_in_path("ifuse") {
+        match Command::new("ifuse").arg("-u").arg(udid).arg(&dir).output() {
+            Ok(output) if output.status.success() => {
+                return Ok(MountGuard {
+                    path: dir,
+                    udid: Some(udid.to_string()),
+                    owns_mount: true,
+                    is_staged_dir: false,
+                });
+            }
+            Ok(output) => {
+                // If afcclient is available (e.g. macOS without macFUSE or Windows), fall through to AFC staging.
+                if !tool_in_path("afcclient") {
+                    let _ = std::fs::remove_dir(&dir);
+                    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+                    let detail = if stderr.is_empty() {
+                        format!("exit status {}", output.status)
+                    } else {
+                        stderr
+                    };
+                    bail!("ifuse failed to mount device {udid}: {detail}");
+                }
+            }
+            Err(err) => {
+                if !tool_in_path("afcclient") {
+                    let _ = std::fs::remove_dir(&dir);
+                    return Err(err).context("failed to execute ifuse");
+                }
+            }
+        }
+    }
+
+    if tool_in_path("afcclient") {
+        let output = match Command::new("afcclient")
+            .args(["-u", udid, "get", "-rf", "DCIM"])
+            .arg(&dir)
+            .output()
+        {
+            Ok(out) => out,
+            Err(err) => {
+                let _ = std::fs::remove_dir_all(&dir);
+                return Err(err).context("failed to execute afcclient");
+            }
+        };
+
+        if !output.status.success() {
+            let _ = std::fs::remove_dir_all(&dir);
+            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+            let detail = if stderr.is_empty() {
+                format!("exit status {}", output.status)
+            } else {
+                stderr
+            };
+            bail!("afcclient failed to access device {udid}: {detail}");
+        }
+
+        let photo_dir = dir.join("PhotoData");
+        let _ = std::fs::create_dir_all(&photo_dir);
+        for name in ["Photos.sqlite", "Photos.sqlite-wal", "Photos.sqlite-shm"] {
+            let remote = format!("PhotoData/{name}");
+            let _ = Command::new("afcclient")
+                .args(["-u", udid, "get", &remote])
+                .arg(photo_dir.join(name))
+                .output();
+        }
+
+        return Ok(MountGuard {
+            path: dir,
+            udid: Some(udid.to_string()),
+            owns_mount: true,
+            is_staged_dir: true,
+        });
+    }
+
+    let _ = std::fs::remove_dir(&dir);
+    bail!("neither ifuse nor afcclient is available in PATH")
 }
 
 /// Cleans up orphaned `copyzer-*` mount directories left behind by killed sessions.
@@ -260,6 +378,7 @@ fn cleanup_stale_mounts() {
                 Err(_) => {
                     // Stale/disconnected FUSE mount (e.g. ENOTCONN / EIO)
                     let _ = Command::new("fusermount3").arg("-uz").arg(&path).status();
+                    let _ = Command::new("umount").arg(&path).status();
                     let _ = std::fs::remove_dir(&path);
                 }
                 Ok(mut rd) => {
@@ -402,5 +521,20 @@ SerialNumber: ABC123
 
         assert!(path.exists());
         assert!(sentinel.exists());
+    }
+
+    #[test]
+    fn mount_guard_carries_optional_udid_and_models_include_iphone_17() {
+        let temp = tempfile::tempdir().unwrap();
+        let guard = MountGuard::from_existing(temp.path().to_path_buf());
+        assert_eq!(guard.udid(), None);
+
+        let info = DeviceInfo {
+            udid: "00008150-TEST".to_string(),
+            name: "User iPhone".to_string(),
+            product_type: "iPhone18,1".to_string(),
+            ios_version: "27.0.1".to_string(),
+        };
+        assert_eq!(info.display_label(), "iPhone 17 Pro");
     }
 }

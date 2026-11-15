@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Copyzer v0.2 — Fast iPhone Media Copier TUI for Linux | Texodus</title>
-  <meta name="description" content="Copyzer is a fast, keyboard-first Rust TUI and CLI for copying iPhone photos and videos to Linux over USB-C. Built by Texodus." />
+  <title>Copyzer v0.2.1 — Fast iPhone Media Copier TUI for Linux, macOS &amp; Windows | Texodus</title>
+  <meta name="description" content="Copyzer is a fast, keyboard-first Rust TUI and CLI for copying iPhone photos and videos to Linux, macOS, and Windows over USB-C. Built by Texodus." />
   <link rel="icon" type="image/svg+xml" href="assets/copyzer.svg" />
   <link rel="stylesheet" href="styles.css" />
 </head>
@@ -14,7 +14,7 @@
       <a class="brand" href="#top">
         <img src="assets/copyzer.svg" alt="Copyzer logo" />
         <span>COPYZER</span>
-        <span class="brand-version">v0.2</span>
+        <span class="brand-version">v0.2.1</span>
       </a>
       <a class="texodus-badge" href="https://texodus.tech" target="_blank" rel="noopener">
         <span class="texodus-dot" aria-hidden="true"></span>
@@ -33,14 +33,14 @@
   <main id="top" class="container">
     <section class="hero">
       <div class="hero-col">
-        <div class="tui-tag">RUST TUI + CLI &bull; ARCH &amp; OMARCHY READY</div>
-        <h1>Copy iPhone media to Linux at USB-C speed.</h1>
+        <div class="tui-tag">RUST TUI + CLI &bull; LINUX, MACOS &amp; WINDOWS</div>
+        <h1>Copy iPhone media at USB-C speed.</h1>
         <p class="hero-lead">
-          <strong>Copyzer</strong> (English <em>copy</em> + Pashto <em>zer</em>, "fast") mounts your USB-C iPhone over <code>ifuse</code>, groups camera roll media by <strong>Year/Month</strong>, <strong>Albums</strong>, or <strong>DCIM folders</strong>, and copies originals atomically with a 1&nbsp;MiB buffer.
+          <strong>Copyzer</strong> (English <em>copy</em> + Pashto <em>zer</em>, "fast") mounts your USB-C iPhone over <code>ifuse</code> / <code>libimobiledevice</code>, groups camera roll media by <strong>Year/Month</strong>, <strong>User Albums</strong>, or <strong>DCIM folders</strong>, and copies originals atomically with a 1&nbsp;MiB buffer.
         </p>
         <div class="hero-actions">
-          <a class="btn btn-primary" href="#install">Install v0.2</a>
-          <a class="btn btn-secondary" href="https://github.com/phaze7r/copyzer/releases/tag/v0.2" target="_blank" rel="noopener">Release v0.2</a>
+          <a class="btn btn-primary" href="#install">Install v0.2.1</a>
+          <a class="btn btn-secondary" href="https://github.com/phaze7r/copyzer/releases/tag/v0.2.1" target="_blank" rel="noopener">Release v0.2.1</a>
           <a class="btn btn-secondary" href="https://github.com/phaze7r/copyzer" target="_blank" rel="noopener">GitHub Repo</a>
         </div>
         <div class="cmd-box">
@@ -66,7 +66,7 @@
 
           <div class="tui-body">
             <div class="tui-box tui-header-row">
-              <span class="tui-logo-text">COPYZER v0.2</span>
+              <span class="tui-logo-text">COPYZER v0.2.1</span>
               <span class="tui-device-badge">iPhone 16 Pro (iOS 27.0.1)</span>
               <span class="tui-dest">Dest: ~/Pictures/Copyzer</span>
             </div>
@@ -195,36 +195,44 @@
     <section id="install" class="section">
       <div class="section-header">
         <div class="section-eyebrow">// 01. SETUP</div>
-        <h2>Install on Linux</h2>
+        <h2>Install on Linux, macOS &amp; Windows</h2>
         <p class="section-lead">
-          Uses <code>ifuse</code>, <code>libimobiledevice</code>, and <code>usbmuxd</code> to mount your iPhone over USB-C in strict read-only mode.
+          Uses <code>ifuse</code> / <code>libimobiledevice</code> (<code>afcclient</code>) and <code>usbmuxd</code> to read your iPhone over USB-C in strict read-only mode.
         </p>
       </div>
 
       <div class="install-panel">
         <div class="tab-strip" role="tablist" aria-label="Install methods">
           <button class="tab-btn active" type="button" data-install="arch">Arch / Omarchy (pacman &amp; yay)</button>
-          <button class="tab-btn" type="button" data-install="universal">Universal Linux</button>
-          <button class="tab-btn" type="button" data-install="cargo">Cargo / PKGBUILD</button>
+          <button class="tab-btn" type="button" data-install="universal">Linux &amp; macOS</button>
+          <button class="tab-btn" type="button" data-install="cargo">Windows &amp; Cargo</button>
         </div>
 
         <div id="install-arch" class="install-pane">
-          <pre><code># Adds the [copyzer] repo to /etc/pacman.conf and installs via pacman
-# Future updates happen automatically on `sudo pacman -Syu` or `yay -Syu`!
-curl -fsSL https://raw.githubusercontent.com/phaze7r/copyzer/main/install.sh | bash</code></pre>
+          <pre><code># 1-line automatic setup (adds [copyzer] to /etc/pacman.conf &amp; installs via pacman):
+curl -fsSL https://raw.githubusercontent.com/phaze7r/copyzer/main/install.sh | bash
+
+# Or add manually to /etc/pacman.conf:
+# [copyzer]
+# SigLevel = Optional TrustAll
+# Server = https://github.com/phaze7r/copyzer/releases/latest/download
+
+sudo pacman -Sy copyzer
+# Update anytime with the rest of your system:
+sudo pacman -Syu   # or: yay -Syu</code></pre>
         </div>
 
         <div id="install-universal" class="install-pane hidden">
-          <pre><code># Install ifuse, libimobiledevice, and usbmuxd via your package manager first, then:
+          <pre><code># Linux &amp; macOS (Apple Silicon / Intel) prebuilt binary installer:
 curl -fsSL https://raw.githubusercontent.com/phaze7r/copyzer/main/install.sh | bash -s -- --tarball</code></pre>
         </div>
 
         <div id="install-cargo" class="install-pane hidden">
-          <pre><code># Build via Cargo:
-cargo install --git https://github.com/phaze7r/copyzer --tag v0.2
+          <pre><code># Windows x86_64: download copyzer-v0.2.1-windows-x86_64.zip from GitHub Releases:
+# https://github.com/phaze7r/copyzer/releases/tag/v0.2.1
 
-# Or build local Arch PKGBUILD:
-git clone https://github.com/phaze7r/copyzer.git && cd copyzer/pkgbuild && makepkg -si</code></pre>
+# Or build from source on any platform via Cargo:
+cargo install --git https://github.com/phaze7r/copyzer --tag v0.2.1</code></pre>
         </div>
       </div>
     </section>
@@ -383,7 +391,7 @@ copyzer copy --year 2026 --month 11</code></pre>
       <div class="footer-links">
         <a href="https://texodus.tech" target="_blank" rel="noopener">texodus.tech</a>
         <a href="https://github.com/phaze7r/copyzer" target="_blank" rel="noopener">GitHub</a>
-        <a href="https://github.com/phaze7r/copyzer/releases/tag/v0.2" target="_blank" rel="noopener">v0.2 Release</a>
+        <a href="https://github.com/phaze7r/copyzer/releases/tag/v0.2.1" target="_blank" rel="noopener">v0.2.1 Release</a>
         <a href="https://github.com/phaze7r/copyzer/issues" target="_blank" rel="noopener">Issues</a>
         <a href="https://github.com/phaze7r/copyzer/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>
       </div>

@@ -161,7 +161,7 @@ fn run_doctor(json: bool) -> Result<()> {
 fn run_scan(mount_dir: Option<PathBuf>, json: bool) -> Result<()> {
     let guard = resolve_mount(mount_dir)?;
     let index = scanner::scan_dcim(guard.path())?;
-    let album_res = albums::load_albums(guard.path(), &index);
+    let album_res = albums::load_albums_with_udid(guard.path(), &index, guard.udid());
 
     if json {
         let payload = serde_json::json!({
@@ -224,7 +224,7 @@ fn run_copy(mount_dir: Option<PathBuf>, dest: PathBuf, args: CopyArgs) -> Result
     let album_buckets = if args.album.is_empty() {
         Vec::new()
     } else {
-        let res = albums::load_albums(guard.path(), &index);
+        let res = albums::load_albums_with_udid(guard.path(), &index, guard.udid());
         if let Some(warning) = res.warning {
             eprintln!("Warning: {warning}");
         }

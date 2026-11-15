@@ -1,6 +1,6 @@
 pkgbase = copyzer
 	pkgdesc = Fast, keyboard-first iPhone media copier TUI/CLI for Arch Linux and Omarchy
-	pkgver = 0.2.0
+	pkgver = 0.2.1
 	pkgrel = 1
 	url = https://github.com/phaze7r/copyzer
 	arch = x86_64

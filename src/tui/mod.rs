@@ -127,7 +127,7 @@ impl AppState {
                 if rel.as_os_str().is_empty() {
                     return "~".to_string();
                 }
-                return format!("~/{}", rel.display());
+                return format!("~/{}", rel.display().to_string().replace('\\', "/"));
             }
         }
         self.dest_dir.display().to_string()
@@ -604,7 +604,10 @@ fn execute_refresh(
                 };
             }
             device::DeviceStatus::MissingTools(tools) => {
-                let msg = format!("Missing tools: {} — install via pacman", tools.join(", "));
+                let msg = format!(
+                    "Missing tools: {} — install libimobiledevice & ifuse",
+                    tools.join(", ")
+                );
                 return RefreshOutcome {
                     device_status: status,
                     mount_guard: None,
@@ -624,7 +627,7 @@ fn execute_refresh(
         Ok(index) => {
             on_scan(index.clone());
             on_status(format!("Loading albums ({} files)...", index.items.len()));
-            let album_res = albums::load_albums(guard.path(), &index);
+            let album_res = albums::load_albums_with_udid(guard.path(), &index, guard.udid());
             let status_msg = format!(
                 "Ready: {} items ({})",
                 index.items.len(),
