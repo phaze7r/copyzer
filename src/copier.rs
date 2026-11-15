@@ -49,13 +49,47 @@ pub fn copy_items<F>(
     dest_root: &Path,
     layout: &DestLayout,
     cancel: &AtomicBool,
+    on_progress: F,
+) -> anyhow::Result<CopySummary>
+where
+    F: FnMut(CopyProgress),
+{
+    let planned: Vec<(PathBuf, &MediaItem)> = items
+        .iter()
+        .map(|&item| (dest_path_for(dest_root, layout, item), item))
+        .collect();
+    copy_planned_items(&planned, cancel, on_progress)
+}
+
+pub fn copy_bucketed_items<F>(
+    batches: &[(String, Vec<MediaItem>)],
+    dest_root: &Path,
+    cancel: &AtomicBool,
+    on_progress: F,
+) -> anyhow::Result<CopySummary>
+where
+    F: FnMut(CopyProgress),
+{
+    let mut planned: Vec<(PathBuf, &MediaItem)> = Vec::new();
+    for (bucket_name, items) in batches {
+        let layout = DestLayout::FlatBucket(bucket_name.clone());
+        for item in items {
+            planned.push((dest_path_for(dest_root, &layout, item), item));
+        }
+    }
+    copy_planned_items(&planned, cancel, on_progress)
+}
+
+fn copy_planned_items<F>(
+    planned: &[(PathBuf, &MediaItem)],
+    cancel: &AtomicBool,
     mut on_progress: F,
 ) -> anyhow::Result<CopySummary>
 where
     F: FnMut(CopyProgress),
 {
-    let total_files = items.len();
-    let total_bytes: u64 = items.iter().map(|item| item.size).sum();
+    let total_files = planned.len();
+    let total_bytes: u64 = planned.iter().map(|(_, item)| item.size).sum();
     let mut summary = CopySummary::default();
     let mut buf = vec![0u8; COPY_BUF_SIZE];
     let mut created_dirs: HashSet<PathBuf> = HashSet::new();
@@ -70,14 +104,13 @@ where
         }
     };
 
-    for item in items {
+    for (base_dest, item) in planned {
         if cancel.load(Ordering::Relaxed) {
             summary.cancelled = true;
             break;
         }
 
-        let base_dest = dest_path_for(dest_root, layout, item);
-        let dest_path = match resolve_safe_dest_path(&base_dest, item) {
+        let dest_path = match resolve_safe_dest_path(base_dest, item) {
             DestResolution::SkipExisting => {
                 summary.skipped_files += 1;
                 on_progress(CopyProgress {
@@ -550,5 +583,45 @@ mod tests {
         assert!(dest_dir.path().join("2026/02/IMG_0001.JPG").exists());
         assert!(!dest_dir.path().join("2026/02/IMG_0002.JPG").exists());
         assert!(!has_part_files(dest_dir.path()));
+    }
+
+    #[test]
+    fn copies_bucketed_batches_into_named_folders() {
+        let src_dir = TempDir::new().unwrap();
+        let dest_dir = TempDir::new().unwrap();
+
+        let item1 = make_source_file(
+            src_dir.path(),
+            "IMG_0001.JPG",
+            b"indigo-photo",
+            1_650_000_000,
+            2022,
+            4,
+        );
+        let item2 = make_source_file(
+            src_dir.path(),
+            "IMG_0002.JPG",
+            b"texodus-photo",
+            1_700_000_000,
+            2025,
+            8,
+        );
+
+        let batches = vec![
+            ("Project Indigo".to_string(), vec![item1]),
+            ("Texodus Inc".to_string(), vec![item2]),
+        ];
+        let cancel = AtomicBool::new(false);
+        let summary = copy_bucketed_items(&batches, dest_dir.path(), &cancel, |_| {}).unwrap();
+
+        assert_eq!(summary.copied_files, 2);
+        assert_eq!(
+            fs::read(dest_dir.path().join("Project Indigo/IMG_0001.JPG")).unwrap(),
+            b"indigo-photo"
+        );
+        assert_eq!(
+            fs::read(dest_dir.path().join("Texodus Inc/IMG_0002.JPG")).unwrap(),
+            b"texodus-photo"
+        );
     }
 }

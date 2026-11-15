@@ -307,8 +307,7 @@ fn extend_from_buckets(
 }
 
 fn resolve_layout(args: &CopyArgs) -> DestLayout {
-    let only_single_album = args.flat
-        && !args.all
+    let only_single_album = !args.all
         && args.year.is_empty()
         && args.month.is_empty()
         && args.dcim.is_empty()
@@ -317,14 +316,20 @@ fn resolve_layout(args: &CopyArgs) -> DestLayout {
         return DestLayout::FlatBucket(args.album[0].clone());
     }
 
-    let only_single_dcim = args.flat
-        && !args.all
+    let only_single_dcim = !args.all
         && args.year.is_empty()
         && args.month.is_empty()
         && args.album.is_empty()
         && args.dcim.len() == 1;
     if only_single_dcim {
         return DestLayout::FlatBucket(args.dcim[0].clone());
+    }
+
+    if args.flat && !args.all && args.year.len() == 1 && args.month.is_empty() {
+        return DestLayout::FlatBucket(format!("{:04}", args.year[0]));
+    }
+    if args.flat && !args.all && args.month.len() == 1 && args.year.is_empty() {
+        return DestLayout::FlatBucket(args.month[0].clone());
     }
 
     DestLayout::YearMonth

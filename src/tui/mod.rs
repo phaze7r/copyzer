@@ -322,7 +322,7 @@ impl AppState {
         }
     }
 
-    fn collect_selected_items(&self) -> Vec<scanner::MediaItem> {
+    fn collect_selected_batches(&self) -> Vec<(String, Vec<scanner::MediaItem>)> {
         let Some(index) = &self.scan_index else {
             return Vec::new();
         };
@@ -343,32 +343,56 @@ impl AppState {
             }
         }
 
-        let mut seen = HashSet::new();
-        let mut items = Vec::new();
+        let dedup_across_buckets = self.tab == Tab::YearsMonths;
+        let mut global_seen = HashSet::new();
+        let mut batches = Vec::new();
+
         for bucket in chosen {
+            let mut bucket_seen = HashSet::new();
+            let mut items = Vec::new();
             for &idx in &bucket.item_indices {
-                if seen.insert(idx) {
+                let is_new = if dedup_across_buckets {
+                    global_seen.insert(idx)
+                } else {
+                    bucket_seen.insert(idx)
+                };
+                if is_new {
                     if let Some(item) = index.items.get(idx) {
                         items.push(item.clone());
                     }
                 }
             }
+            if !items.is_empty() {
+                batches.push((bucket.label.clone(), items));
+            }
         }
-        items
+        batches
+    }
+
+    #[cfg(test)]
+    fn collect_selected_items(&self) -> Vec<scanner::MediaItem> {
+        self.collect_selected_batches()
+            .into_iter()
+            .flat_map(|(_, items)| items)
+            .collect()
     }
 
     fn start_copy(&mut self) {
         if self.is_copying() {
             return;
         }
-        let items = self.collect_selected_items();
-        if items.is_empty() {
+        let batches = self.collect_selected_batches();
+        let total_files: usize = batches.iter().map(|(_, items)| items.len()).sum();
+        if total_files == 0 {
             self.status_msg = "No media items selected to copy".to_string();
             return;
         }
 
-        let total_files = items.len();
-        let total_bytes: u64 = items.iter().map(|i| i.size).sum();
+        let total_bytes: u64 = batches
+            .iter()
+            .flat_map(|(_, items)| items.iter())
+            .map(|i| i.size)
+            .sum();
         let dest_dir = self.dest_dir.clone();
         let cancel = Arc::new(AtomicBool::new(false));
         let cancel_thread = Arc::clone(&cancel);
@@ -393,16 +417,9 @@ impl AppState {
         );
 
         std::thread::spawn(move || {
-            let refs: Vec<&scanner::MediaItem> = items.iter().collect();
-            let res = copier::copy_items(
-                &refs,
-                &dest_dir,
-                &copier::DestLayout::YearMonth,
-                &cancel_thread,
-                |progress| {
-                    let _ = tx.send(CopyEvent::Progress(progress));
-                },
-            );
+            let res = copier::copy_bucketed_items(&batches, &dest_dir, &cancel_thread, |progress| {
+                let _ = tx.send(CopyEvent::Progress(progress));
+            });
             let _ = tx.send(CopyEvent::Done(res));
         });
     }
