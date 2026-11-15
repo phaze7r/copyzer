@@ -94,6 +94,15 @@ else
   if [[ "$PLATFORM" == "linux" && -f "${STAGE}/copyzer.desktop" ]]; then
     install -Dm644 "${STAGE}/copyzer.desktop" "/usr/share/applications/copyzer.desktop"
     install -Dm644 "${STAGE}/copyzer.svg" "/usr/share/icons/hicolor/scalable/apps/copyzer.svg"
+    if [[ -f "${STAGE}/copyzer-usb-a.conf" ]]; then
+      install -Dm644 "${STAGE}/copyzer-usb-a.conf" "/etc/modprobe.d/copyzer-usb-a.conf"
+      modprobe -r apple_mfi_fastcharge 2>/dev/null || true
+    fi
+    if [[ -f "${STAGE}/90-copyzer-iphone.rules" ]]; then
+      install -Dm644 "${STAGE}/90-copyzer-iphone.rules" "/etc/udev/rules.d/90-copyzer-iphone.rules"
+      udevadm control --reload-rules 2>/dev/null || true
+      udevadm trigger --subsystem-match=usb --action=add 2>/dev/null || true
+    fi
   fi
   echo "Installed copyzer to /usr/local/bin/copyzer"
 fi

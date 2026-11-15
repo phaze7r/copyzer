@@ -23,5 +23,7 @@ package() {
   install -Dm755 "target/release/$pkgname" "$pkgdir/usr/bin/$pkgname"
   install -Dm644 "pkgbuild/$pkgname.desktop" "$pkgdir/usr/share/applications/$pkgname.desktop"
   install -Dm644 "pkgbuild/$pkgname.svg" "$pkgdir/usr/share/icons/hicolor/scalable/apps/$pkgname.svg"
+  install -Dm644 "pkgbuild/copyzer-usb-a.conf" "$pkgdir/usr/lib/modprobe.d/copyzer-usb-a.conf"
+  install -Dm644 "pkgbuild/90-copyzer-iphone.rules" "$pkgdir/usr/lib/udev/rules.d/90-copyzer-iphone.rules"
   install -Dm644 "LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }

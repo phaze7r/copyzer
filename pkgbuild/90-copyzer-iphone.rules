@@ -1,0 +1,5 @@
+# Keep Apple iPhone USB connections (USB-A & USB-C) awake during media scans and copies.
+ACTION=="add|bind", SUBSYSTEM=="usb", ATTR{idVendor}=="05ac", TEST=="power/control", ATTR{power/control}="on"
+
+# Keep external USB 2.0 hubs (e.g. 214b:7250) awake when kernel wakeup is disabled.
+ACTION=="add|bind", SUBSYSTEM=="usb", ATTR{idVendor}=="214b", ATTR{idProduct}=="7250", TEST=="power/control", ATTR{power/control}="on"

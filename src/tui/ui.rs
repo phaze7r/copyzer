@@ -226,10 +226,14 @@ fn empty_state_message(app: &AppState) -> (String, ratatui::style::Color) {
             format!("\n{message}\n\nUnlock iPhone & tap Trust, then press r to refresh."),
             app.theme.warning,
         ),
-        DeviceStatus::NoDevice => (
-            "\nPlug in iPhone via USB-C, then press r to refresh.".to_string(),
-            app.theme.muted,
-        ),
+        DeviceStatus::NoDevice => {
+            let hint = if crate::device::is_apple_fastcharge_loaded() {
+                "\nPlug in iPhone, then press r to refresh.\n\n(Using a USB-A to USB-C cable? Run `sudo modprobe -r apple_mfi_fastcharge` if the port resets.)"
+            } else {
+                "\nPlug in iPhone via USB-C or USB-A, then press r to refresh."
+            };
+            (hint.to_string(), app.theme.muted)
+        }
         DeviceStatus::Connected(_) => {
             if app.tab == Tab::Albums {
                 if let Some(warn) = &app.album_warning {

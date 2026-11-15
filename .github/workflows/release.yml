@@ -47,6 +47,8 @@ jobs:
           cp "target/${{ matrix.target }}/release/copyzer" "${STAGE}/copyzer"
           cp pkgbuild/copyzer.desktop "${STAGE}/copyzer.desktop"
           cp pkgbuild/copyzer.svg "${STAGE}/copyzer.svg"
+          cp pkgbuild/copyzer-usb-a.conf "${STAGE}/copyzer-usb-a.conf"
+          cp pkgbuild/90-copyzer-iphone.rules "${STAGE}/90-copyzer-iphone.rules"
           cp LICENSE README.md "${STAGE}/"
           tar -czf "${STAGE}.tar.gz" "${STAGE}"
           sha256sum "${STAGE}.tar.gz" > "${STAGE}.tar.gz.sha256"
@@ -64,10 +66,10 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: macos-14
+          - os: macos-latest
             target: aarch64-apple-darwin
             arch: aarch64
-          - os: macos-14
+          - os: macos-latest
             target: x86_64-apple-darwin
             arch: x86_64
     steps:

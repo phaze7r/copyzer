@@ -600,7 +600,7 @@ fn execute_refresh(
                     scan_index: None,
                     albums: Vec::new(),
                     album_warning: None,
-                    status_msg: "Plug in iPhone via USB-C — press r to retry".to_string(),
+                    status_msg: "Plug in iPhone via USB — press r to retry".to_string(),
                 };
             }
             device::DeviceStatus::MissingTools(tools) => {

@@ -80,6 +80,7 @@ pub enum DeviceStatus {
 pub struct DoctorReport {
     pub tools: Vec<(String, bool)>,
     pub status: DeviceStatus,
+    pub usb_a_fastcharge_warning: bool,
 }
 
 /// RAII guard for an `ifuse` mount directory or an `afcclient` staged directory.
@@ -181,8 +182,40 @@ pub fn doctor_report() -> DoctorReport {
         .map(|&tool| (tool.to_string(), tool_in_path(tool)))
         .collect();
     let status = detect_device();
+    let usb_a_fastcharge_warning = is_apple_fastcharge_loaded();
 
-    DoctorReport { tools, status }
+    DoctorReport {
+        tools,
+        status,
+        usb_a_fastcharge_warning,
+    }
+}
+
+pub fn is_apple_fastcharge_loaded() -> bool {
+    #[cfg(target_os = "linux")]
+    {
+        Path::new("/sys/module/apple_mfi_fastcharge").exists()
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        false
+    }
+}
+
+fn retry_with_backoff<T, F>(attempts: usize, delays_ms: &[u64], mut op: F) -> Option<T>
+where
+    F: FnMut() -> Option<T>,
+{
+    for i in 0..attempts {
+        if let Some(val) = op() {
+            return Some(val);
+        }
+        if i + 1 < attempts {
+            let delay = delays_ms.get(i).copied().unwrap_or(300);
+            std::thread::sleep(std::time::Duration::from_millis(delay));
+        }
+    }
+    None
 }
 
 pub fn detect_device() -> DeviceStatus {
@@ -201,34 +234,37 @@ pub fn detect_device() -> DeviceStatus {
         return DeviceStatus::MissingTools(missing);
     }
 
-    let Ok(id_out) = Command::new("idevice_id").arg("-l").output() else {
+    // Retry UDID detection with short backoff for USB-A / USB 2.0 enumeration settle.
+    let Some(udid) = retry_with_backoff(3, &[200, 400], || {
+        let out = Command::new("idevice_id").arg("-l").output().ok()?;
+        if !out.status.success() {
+            return None;
+        }
+        parse_udid_list(&String::from_utf8_lossy(&out.stdout))
+    }) else {
         return DeviceStatus::NoDevice;
     };
-    if !id_out.status.success() {
-        return DeviceStatus::NoDevice;
-    }
 
-    let Some(udid) = parse_udid_list(&String::from_utf8_lossy(&id_out.stdout)) else {
-        return DeviceStatus::NoDevice;
-    };
-
-    // Fast path: query ideviceinfo directly (1 USB round-trip instead of 2).
-    if let Ok(info_out) = Command::new("ideviceinfo").args(["-u", &udid]).output() {
+    // Fast path: query ideviceinfo with retry for USB-A / Lightning handshake settle.
+    if let Some(status) = retry_with_backoff(3, &[200, 400], || {
+        let info_out = Command::new("ideviceinfo").args(["-u", &udid]).output().ok()?;
         let stdout = String::from_utf8_lossy(&info_out.stdout);
         let stderr = String::from_utf8_lossy(&info_out.stderr);
         let combined = format!("{stdout}\n{stderr}");
 
         if info_out.status.success() && stdout.contains("ProductVersion:") {
             let info = parse_ideviceinfo(&stdout, &udid);
-            return DeviceStatus::Connected(info);
+            return Some(DeviceStatus::Connected(info));
         }
-
         if is_untrusted_output(&combined) {
-            return DeviceStatus::Untrusted {
-                udid,
+            return Some(DeviceStatus::Untrusted {
+                udid: udid.clone(),
                 message: UNTRUSTED_MESSAGE.to_string(),
-            };
+            });
         }
+        None
+    }) {
+        return status;
     }
 
     // Fallback: explicit pair validation to distinguish untrusted vs disconnected.
@@ -275,34 +311,38 @@ pub fn mount_iphone(udid: &str) -> Result<MountGuard> {
     }
 
     if tool_in_path("ifuse") {
-        match Command::new("ifuse").arg("-u").arg(udid).arg(&dir).output() {
-            Ok(output) if output.status.success() => {
-                return Ok(MountGuard {
-                    path: dir,
-                    udid: Some(udid.to_string()),
-                    owns_mount: true,
-                    is_staged_dir: false,
-                });
-            }
-            Ok(output) => {
-                // If afcclient is available (e.g. macOS without macFUSE or Windows), fall through to AFC staging.
-                if !tool_in_path("afcclient") {
-                    let _ = std::fs::remove_dir(&dir);
+        let mut last_err = None;
+        for attempt in 0..3 {
+            match Command::new("ifuse").arg("-u").arg(udid).arg(&dir).output() {
+                Ok(output) if output.status.success() => {
+                    return Ok(MountGuard {
+                        path: dir,
+                        udid: Some(udid.to_string()),
+                        owns_mount: true,
+                        is_staged_dir: false,
+                    });
+                }
+                Ok(output) => {
                     let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
                     let detail = if stderr.is_empty() {
                         format!("exit status {}", output.status)
                     } else {
                         stderr
                     };
-                    bail!("ifuse failed to mount device {udid}: {detail}");
+                    last_err = Some(anyhow::anyhow!("ifuse failed to mount device {udid}: {detail}"));
+                }
+                Err(err) => {
+                    last_err = Some(anyhow::Error::new(err).context("failed to execute ifuse"));
                 }
             }
-            Err(err) => {
-                if !tool_in_path("afcclient") {
-                    let _ = std::fs::remove_dir(&dir);
-                    return Err(err).context("failed to execute ifuse");
-                }
+            if attempt < 2 {
+                std::thread::sleep(std::time::Duration::from_millis(300 * (attempt as u64 + 1)));
             }
+        }
+        // If afcclient is not available, return the ifuse error immediately.
+        if !tool_in_path("afcclient") {
+            let _ = std::fs::remove_dir(&dir);
+            return Err(last_err.unwrap_or_else(|| anyhow::anyhow!("ifuse failed to mount device {udid}")));
         }
     }
 
@@ -536,5 +576,20 @@ SerialNumber: ABC123
             ios_version: "27.0.1".to_string(),
         };
         assert_eq!(info.display_label(), "iPhone 17 Pro");
+    }
+
+    #[test]
+    fn retry_with_backoff_retries_until_some() {
+        let mut attempts = 0usize;
+        let res = retry_with_backoff(3, &[1, 1], || {
+            attempts += 1;
+            if attempts < 3 {
+                None
+            } else {
+                Some("connected")
+            }
+        });
+        assert_eq!(res, Some("connected"));
+        assert_eq!(attempts, 3);
     }
 }

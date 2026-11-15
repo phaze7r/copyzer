@@ -149,7 +149,15 @@ fn run_doctor(json: bool) -> Result<()> {
         DeviceStatus::Untrusted { udid, message } => {
             println!("  untrusted ({udid}): {message}");
         }
-        DeviceStatus::NoDevice => println!("  no device detected"),
+        DeviceStatus::NoDevice => {
+            println!("  no device detected");
+            if report.usb_a_fastcharge_warning {
+                println!(
+                    "  hint (USB-A cable): 'apple_mfi_fastcharge' kernel module is loaded and can brown out USB-A ports."
+                );
+                println!("  fix: sudo modprobe -r apple_mfi_fastcharge");
+            }
+        }
         DeviceStatus::MissingTools(tools) => {
             println!("  cannot check device; missing tools: {}", tools.join(", "));
         }
