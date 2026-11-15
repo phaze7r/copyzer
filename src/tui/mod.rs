@@ -52,6 +52,7 @@ pub enum RefreshEvent {
     Status(String),
     DeviceStatus(device::DeviceStatus),
     ScanReady(Box<scanner::ScanIndex>),
+    AlbumsReady(Vec<scanner::Bucket>, Option<String>),
     Done(Box<RefreshOutcome>),
 }
 
@@ -83,6 +84,7 @@ pub struct AppState {
     pub copy_progress: Option<copier::CopyProgress>,
     pub copy_summary: Option<copier::CopySummary>,
     pub status_msg: String,
+    pub anim_tick: usize,
 }
 
 impl AppState {
@@ -109,6 +111,7 @@ impl AppState {
             copy_progress: None,
             copy_summary: None,
             status_msg: "Initializing...".to_string(),
+            anim_tick: 0,
         }
     }
 
@@ -144,6 +147,7 @@ impl AppState {
             |_| {},
             |_| {},
             |_| {},
+            |_, _| {},
         );
         self.apply_refresh_outcome(outcome);
     }
@@ -152,9 +156,6 @@ impl AppState {
         if self.is_refreshing() || self.is_copying() {
             return;
         }
-        self.scan_index = None;
-        self.albums.clear();
-        self.album_warning = None;
         self.status_msg = "Detecting iPhone...".to_string();
         let prev_guard = self.mount_guard.take();
         let mount_dir_override = self.mount_dir_override.clone();
@@ -174,6 +175,9 @@ impl AppState {
                 },
                 |index| {
                     let _ = tx.send(RefreshEvent::ScanReady(Box::new(index)));
+                },
+                |albums, warn| {
+                    let _ = tx.send(RefreshEvent::AlbumsReady(albums, warn));
                 },
             );
             let _ = tx.send(RefreshEvent::Done(Box::new(outcome)));
@@ -197,6 +201,11 @@ impl AppState {
                 }
                 RefreshEvent::ScanReady(index) => {
                     self.scan_index = Some(*index);
+                    scan_updated = true;
+                }
+                RefreshEvent::AlbumsReady(albums, warn) => {
+                    self.albums = albums;
+                    self.album_warning = warn;
                     scan_updated = true;
                 }
                 RefreshEvent::Done(outcome) => {
@@ -446,6 +455,21 @@ impl AppState {
             match res {
                 Ok(summary) => {
                     self.status_msg = format_copy_summary(&summary);
+                    if !summary.cancelled {
+                        let phone_label = match &self.device_status {
+                            device::DeviceStatus::Connected(info) => info.display_label(),
+                            _ => "iPhone".to_string(),
+                        };
+                        device::notify_desktop(
+                            &format!("Copy Complete — {phone_label}"),
+                            &format!(
+                                "Copied {} files ({}) to {}",
+                                summary.copied_files,
+                                scanner::format_bytes(summary.copied_bytes),
+                                self.display_dest()
+                            ),
+                        );
+                    }
                     self.copy_summary = Some(summary);
                 }
                 Err(err) => {
@@ -566,6 +590,7 @@ fn execute_refresh(
     on_status: impl Fn(String),
     on_device: impl Fn(device::DeviceStatus),
     on_scan: impl Fn(scanner::ScanIndex),
+    on_albums: impl Fn(Vec<scanner::Bucket>, Option<String>),
 ) -> RefreshOutcome {
     drop(prev_guard);
 
@@ -584,6 +609,15 @@ fn execute_refresh(
         on_device(status.clone());
         match &status {
             device::DeviceStatus::Connected(info) => {
+                device::notify_desktop(
+                    "iPhone Detected",
+                    &format!("{} (iOS {}) connected", info.display_label(), info.ios_version),
+                );
+                // Show cached media & albums immediately while mounting
+                if let Some(cached) = crate::cache::load_device_cache(&info.udid) {
+                    on_scan(cached.index);
+                    on_albums(cached.albums, cached.album_warning);
+                }
                 on_status(format!("Mounting {}...", info.display_label()));
                 match device::mount_iphone(&info.udid) {
                     Ok(guard) => (status, guard),
@@ -637,6 +671,31 @@ fn execute_refresh(
         }
     };
 
+    // Fast path: if cached index exists for this device UDID and DCIM/ is unchanged, rebase onto the new mount
+    if let device::DeviceStatus::Connected(info) = &device_status {
+        if info.udid != "local" {
+            if let Some(mut cached) = crate::cache::load_device_cache(&info.udid) {
+                on_status("Verifying cached media library...".to_string());
+                if crate::cache::is_dcim_unchanged(guard.path(), &cached.index) {
+                    crate::cache::rebase_scan_index(&mut cached.index, guard.path());
+                    let status_msg = format!(
+                        "Ready: {} items ({}) [cached]",
+                        cached.index.items.len(),
+                        scanner::format_bytes(cached.index.total_bytes)
+                    );
+                    return RefreshOutcome {
+                        device_status,
+                        mount_guard: Some(guard),
+                        scan_index: Some(cached.index),
+                        albums: cached.albums,
+                        album_warning: cached.album_warning,
+                        status_msg,
+                    };
+                }
+            }
+        }
+    }
+
     on_status("Scanning DCIM/...".to_string());
     match scanner::scan_dcim_with_progress(guard.path(), |count| {
         on_status(format!("Scanning DCIM/ ({count} files)..."));
@@ -645,6 +704,16 @@ fn execute_refresh(
             on_scan(index.clone());
             on_status(format!("Loading albums ({} files)...", index.items.len()));
             let album_res = albums::load_albums_with_udid(guard.path(), &index, guard.udid());
+            if let device::DeviceStatus::Connected(info) = &device_status {
+                if info.udid != "local" {
+                    crate::cache::save_device_cache(&crate::cache::DeviceCache {
+                        udid: info.udid.clone(),
+                        index: index.clone(),
+                        albums: album_res.albums.clone(),
+                        album_warning: album_res.warning.clone(),
+                    });
+                }
+            }
             let status_msg = format!(
                 "Ready: {} items ({})",
                 index.items.len(),
@@ -750,6 +819,9 @@ pub fn run(mount_dir: Option<PathBuf>, dest: Option<PathBuf>) -> anyhow::Result<
     loop {
         app.poll_refresh_events();
         app.poll_copy_events();
+        if app.is_refreshing() || app.is_copying() {
+            app.anim_tick = app.anim_tick.wrapping_add(1);
+        }
         guard.terminal.draw(|frame| ui::render(frame, &app))?;
 
         if event::poll(Duration::from_millis(50))? {

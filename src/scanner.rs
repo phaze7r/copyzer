@@ -1,5 +1,5 @@
 use chrono::Datelike;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::{Component, Path, PathBuf};
 use std::time::SystemTime;
@@ -9,7 +9,7 @@ const MEDIA_EXTENSIONS: &[&str] = &[
     "heic", "heif", "jpg", "jpeg", "png", "dng", "raw", "mov", "mp4", "m4v", "aae", "gif",
 ];
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct MediaItem {
     pub path: PathBuf,
     pub rel_path: String,
@@ -21,7 +21,7 @@ pub struct MediaItem {
     pub dcim_folder: String,
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Bucket {
     pub key: String,
     pub label: String,
@@ -29,7 +29,7 @@ pub struct Bucket {
     pub total_bytes: u64,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScanIndex {
     pub items: Vec<MediaItem>,
     pub years: Vec<Bucket>,

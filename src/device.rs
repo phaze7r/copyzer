@@ -4,7 +4,7 @@ use std::env;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
 
 #[cfg(target_os = "windows")]
 const REQUIRED_TOOLS: &[&str] = &["idevice_id", "ideviceinfo", "idevicepair", "afcclient"];
@@ -45,9 +45,30 @@ pub struct DeviceInfo {
 }
 
 impl DeviceInfo {
-    /// Returns a clean, terminal-safe display name (prefers known hardware model over custom DeviceName).
-    pub fn display_label(&self) -> &str {
-        match self.product_type.as_str() {
+    /// Maps Apple `ProductType` identifiers (e.g. `iPhone17,1`) to human-readable model names.
+    pub fn model_name(&self) -> Option<&'static str> {
+        Some(match self.product_type.as_str() {
+            "iPhone10,1" | "iPhone10,4" => "iPhone 8",
+            "iPhone10,2" | "iPhone10,5" => "iPhone 8 Plus",
+            "iPhone10,3" | "iPhone10,6" => "iPhone X",
+            "iPhone11,2" => "iPhone XS",
+            "iPhone11,4" | "iPhone11,6" => "iPhone XS Max",
+            "iPhone11,8" => "iPhone XR",
+            "iPhone12,1" => "iPhone 11",
+            "iPhone12,3" => "iPhone 11 Pro",
+            "iPhone12,5" => "iPhone 11 Pro Max",
+            "iPhone13,1" => "iPhone 12 mini",
+            "iPhone13,2" => "iPhone 12",
+            "iPhone13,3" => "iPhone 12 Pro",
+            "iPhone13,4" => "iPhone 12 Pro Max",
+            "iPhone14,4" => "iPhone 13 mini",
+            "iPhone14,5" => "iPhone 13",
+            "iPhone14,2" => "iPhone 13 Pro",
+            "iPhone14,3" => "iPhone 13 Pro Max",
+            "iPhone14,7" => "iPhone 14",
+            "iPhone14,8" => "iPhone 14 Plus",
+            "iPhone15,2" => "iPhone 14 Pro",
+            "iPhone15,3" => "iPhone 14 Pro Max",
             "iPhone15,4" => "iPhone 15",
             "iPhone15,5" => "iPhone 15 Plus",
             "iPhone16,1" => "iPhone 15 Pro",
@@ -61,11 +82,69 @@ impl DeviceInfo {
             "iPhone18,2" => "iPhone 17 Pro Max",
             "iPhone18,3" => "iPhone 17",
             "iPhone18,4" => "iPhone 17 Air",
-            "MountDir" => &self.name,
-            _ if self.name.is_ascii() && !self.name.is_empty() => &self.name,
-            _ => "iPhone",
+            _ => return None,
+        })
+    }
+
+    /// Returns a display label combining the custom iPhone name (including Pashto/Unicode names)
+    /// and the hardware model name (e.g. `پښتو · iPhone 16 Pro` or `iPhone 16 Pro`).
+    pub fn display_label(&self) -> String {
+        let trimmed_name = self.name.trim();
+        match self.model_name() {
+            Some(model) => {
+                if !trimmed_name.is_empty()
+                    && !trimmed_name.eq_ignore_ascii_case("iPhone")
+                    && !trimmed_name.eq_ignore_ascii_case(model)
+                {
+                    format!("{trimmed_name} · {model}")
+                } else {
+                    model.to_string()
+                }
+            }
+            None => {
+                if !trimmed_name.is_empty() {
+                    trimmed_name.to_string()
+                } else {
+                    "iPhone".to_string()
+                }
+            }
         }
     }
+}
+
+/// Sends a non-blocking desktop notification (via `notify-send` on Linux or `osascript` on macOS).
+pub fn notify_desktop(summary: &str, body: &str) {
+    let summary = summary.to_string();
+    let body = body.to_string();
+    std::thread::spawn(move || {
+        #[cfg(target_os = "macos")]
+        {
+            if tool_in_path("osascript") {
+                let script = format!(
+                    "display notification {:?} with title {:?}",
+                    body, summary
+                );
+                let _ = Command::new("osascript")
+                    .arg("-e")
+                    .arg(script)
+                    .stdin(Stdio::null())
+                    .stdout(Stdio::null())
+                    .stderr(Stdio::null())
+                    .status();
+            }
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            if tool_in_path("notify-send") {
+                let _ = Command::new("notify-send")
+                    .args(["-a", "Copyzer", "-i", "phone", &summary, &body])
+                    .stdin(Stdio::null())
+                    .stdout(Stdio::null())
+                    .stderr(Stdio::null())
+                    .status();
+            }
+        }
+    });
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
@@ -505,7 +584,10 @@ SerialNumber: ABC123
                 ios_version: "18.1.1".to_string(),
             }
         );
-        assert_eq!(info.display_label(), "iPhone 16 Pro Max");
+        assert_eq!(
+            info.display_label(),
+            "User iPhone 16 Pro Max · iPhone 16 Pro Max"
+        );
 
         let partial = "DeviceName:\n";
         let fallback = parse_ideviceinfo(partial, "UDID-FALLBACK");
@@ -571,11 +653,11 @@ SerialNumber: ABC123
 
         let info = DeviceInfo {
             udid: "00008150-TEST".to_string(),
-            name: "User iPhone".to_string(),
+            name: "پښتو".to_string(),
             product_type: "iPhone18,1".to_string(),
             ios_version: "27.0.1".to_string(),
         };
-        assert_eq!(info.display_label(), "iPhone 17 Pro");
+        assert_eq!(info.display_label(), "پښتو · iPhone 17 Pro");
     }
 
     #[test]

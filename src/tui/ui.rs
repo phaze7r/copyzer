@@ -21,13 +21,19 @@ pub fn render(frame: &mut Frame<'_>, app: &AppState) {
     );
     frame.render_widget(bg_block, area);
 
+    let footer_height = if app.is_refreshing() || app.is_copying() {
+        5
+    } else {
+        3
+    };
+
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Length(3),
             Constraint::Length(3),
             Constraint::Min(5),
-            Constraint::Length(3),
+            Constraint::Length(footer_height),
         ])
         .split(area);
 
@@ -44,7 +50,7 @@ pub fn render(frame: &mut Frame<'_>, app: &AppState) {
 fn render_header(frame: &mut Frame<'_>, area: Rect, app: &AppState) {
     let (badge_text, badge_color) = match &app.device_status {
         DeviceStatus::Connected(info) => {
-            let display_name = info.display_label();
+            let display_name = crate::rtl::shape_for_terminal(&info.display_label());
             let label = if info.ios_version == "-" {
                 format!(" {display_name} ")
             } else {
@@ -160,12 +166,13 @@ fn render_main(frame: &mut Frame<'_>, area: Rect, app: &AppState) {
         .map(|row| {
             let checked = app.is_selected(app.tab, &row.bucket.key);
             let checkbox = if checked { "[x]" } else { "[ ]" };
+            let shaped_label = crate::rtl::shape_for_terminal(&row.bucket.label);
             let label = if row.indented {
-                format!("  {}", row.bucket.label)
+                format!("  {shaped_label}")
             } else if app.tab == Tab::YearsMonths {
-                format!("{} (All)", row.bucket.label)
+                format!("{shaped_label} (All)")
             } else {
-                row.bucket.label.clone()
+                shaped_label
             };
             let count = format!("{} files", row.bucket.item_indices.len());
             let size = scanner::format_bytes(row.bucket.total_bytes);
@@ -210,9 +217,40 @@ fn render_main(frame: &mut Frame<'_>, area: Rect, app: &AppState) {
     frame.render_stateful_widget(table, area, &mut state);
 }
 
+fn spinner_frame(tick: usize) -> &'static str {
+    const FRAMES: &[&str] = &["⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"];
+    FRAMES[tick % FRAMES.len()]
+}
+
+fn animated_wave_bar(tick: usize, width: usize) -> String {
+    let mut bar = String::with_capacity(width * 3);
+    let head = tick % width;
+    for i in 0..width {
+        let dist = head.abs_diff(i).min(width - head.abs_diff(i));
+        if dist <= 3 {
+            bar.push('█');
+        } else if dist <= 6 {
+            bar.push('▓');
+        } else if dist <= 9 {
+            bar.push('▒');
+        } else {
+            bar.push('░');
+        }
+    }
+    bar
+}
+
 fn empty_state_message(app: &AppState) -> (String, ratatui::style::Color) {
     if app.is_refreshing() {
-        return (format!("\n{}", app.status_msg), app.theme.accent);
+        let spin = spinner_frame(app.anim_tick);
+        let wave = animated_wave_bar(app.anim_tick, 32);
+        return (
+            format!(
+                "\n\n{spin}  {}\n\n[ {wave} ]\n\nIndexing media library — cached items load automatically on reconnect",
+                crate::rtl::shape_for_terminal(&app.status_msg)
+            ),
+            app.theme.accent,
+        );
     }
     match &app.device_status {
         DeviceStatus::MissingTools(tools) => (
@@ -248,7 +286,11 @@ fn empty_state_message(app: &AppState) -> (String, ratatui::style::Color) {
 fn render_footer(frame: &mut Frame<'_>, area: Rect, app: &AppState) {
     let block = Block::default()
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(app.theme.muted));
+        .border_style(Style::default().fg(if app.is_copying() || app.is_refreshing() {
+            app.theme.accent
+        } else {
+            app.theme.muted
+        }));
 
     if let Some(progress) = &app.copy_progress {
         let done = progress.copied_files + progress.skipped_files;
@@ -264,16 +306,24 @@ fn render_footer(frame: &mut Frame<'_>, area: Rect, app: &AppState) {
         } else {
             String::new()
         };
+        let spin = spinner_frame(app.anim_tick);
+        let bytes_str = format!(
+            "{} / {}",
+            scanner::format_bytes(progress.copied_bytes),
+            scanner::format_bytes(progress.total_bytes)
+        );
         let label = format!(
-            "{done}/{}{speed_str} ({}) — Esc/q Cancel",
-            progress.total_files, progress.current_file
+            "{spin} COPYING {done}/{} files ({bytes_str}){speed_str} · {} · [Esc/q Cancel]",
+            progress.total_files,
+            crate::rtl::shape_for_terminal(&progress.current_file)
         );
         let gauge = Gauge::default()
-            .block(block)
+            .block(block.title(" Active Transfer "))
             .gauge_style(
                 Style::default()
                     .fg(app.theme.accent)
-                    .bg(app.theme.background),
+                    .bg(app.theme.background)
+                    .add_modifier(Modifier::BOLD),
             )
             .ratio(ratio)
             .label(label);
@@ -281,9 +331,43 @@ fn render_footer(frame: &mut Frame<'_>, area: Rect, app: &AppState) {
         return;
     }
 
+    if app.is_refreshing() {
+        let spin = spinner_frame(app.anim_tick);
+        let wave = animated_wave_bar(app.anim_tick, 36);
+        let lines = vec![
+            Line::from(vec![
+                Span::styled(
+                    format!(" {spin} "),
+                    Style::default()
+                        .fg(app.theme.accent)
+                        .add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(
+                    crate::rtl::shape_for_terminal(&app.status_msg),
+                    Style::default()
+                        .fg(app.theme.foreground)
+                        .add_modifier(Modifier::BOLD),
+                ),
+            ]),
+            Line::from(vec![
+                Span::styled(
+                    format!("   {wave} "),
+                    Style::default().fg(app.theme.accent),
+                ),
+                Span::styled(
+                    " │ ? Help  Space Select  Enter Copy  d Dest  q Quit",
+                    Style::default().fg(app.theme.muted),
+                ),
+            ]),
+        ];
+        let footer = Paragraph::new(lines).block(block.title(" Loading Media Library "));
+        frame.render_widget(footer, area);
+        return;
+    }
+
     let text = Line::from(vec![
         Span::styled(
-            format!(" {} ", app.status_msg),
+            format!(" {} ", crate::rtl::shape_for_terminal(&app.status_msg)),
             Style::default().fg(app.theme.foreground),
         ),
         Span::styled(" │ ", Style::default().fg(app.theme.muted)),

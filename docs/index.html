@@ -1,155 +1,194 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Copyzer v0.2.2 — Fast iPhone Media Copier TUI for Linux, macOS &amp; Windows | Texodus</title>
-  <meta name="description" content="Copyzer is a fast, keyboard-first Rust TUI and CLI for copying iPhone photos and videos to Linux, macOS, and Windows over USB-C. Built by Texodus." />
+  <title>Copyzer v0.3.0 — Direct iPhone Media Extraction from the Terminal | Texodus</title>
+  <meta name="description" content="Move 100+ GB of original iPhone photos, ProRAW files, and 4K video to Linux, macOS, and Windows over USB without iCloud or iTunes. Engineered by Texodus." />
   <link rel="icon" type="image/svg+xml" href="assets/copyzer.svg" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <header class="topbar">
-    <div class="container topbar-inner">
-      <a class="brand" href="#top">
-        <img src="assets/copyzer.svg" alt="Copyzer logo" />
+    <div class="topbar-inner">
+      <a class="brand" href="#top" aria-label="Copyzer Home">
+        <svg class="brand-mark" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <rect x="1" y="1" width="30" height="30" stroke="currentColor" stroke-width="2" />
+          <rect x="6" y="7" width="8" height="18" stroke="currentColor" stroke-width="1.8" />
+          <path d="M17 16H26M22 11L27 16L22 21" stroke="#2563EB" stroke-width="2.4" stroke-linecap="square" />
+        </svg>
         <span>COPYZER</span>
-        <span class="brand-version">v0.2.2</span>
+        <span class="brand-version">v0.3.0</span>
       </a>
-      <a class="texodus-badge" href="https://texodus.tech" target="_blank" rel="noopener">
-        <span class="texodus-dot" aria-hidden="true"></span>
-        <span>texodus.tech</span>
-      </a>
-      <nav class="nav" aria-label="Primary">
-        <a href="#install">[1] Install</a>
-        <a href="#features">[2] Features</a>
-        <a href="#shortcuts">[3] Keys &amp; CLI</a>
-        <a href="#roadmap">[4] Roadmap</a>
-        <a href="https://github.com/phaze7r/copyzer" target="_blank" rel="noopener">[GitHub]</a>
+
+      <nav class="nav-center" aria-label="Primary Navigation">
+        <a class="nav-link nav-link-cta" href="#install" data-navsection="install">Install</a>
+        <a class="nav-link" href="#architecture" data-navsection="architecture">Architecture</a>
+        <a class="nav-link" href="#reference" data-navsection="reference">Keys &amp; CLI</a>
+        <a class="nav-link" href="https://github.com/phaze7r/copyzer" target="_blank" rel="noopener">GitHub</a>
+        <a class="nav-link" href="https://texodus.tech" target="_blank" rel="noopener">Texodus</a>
       </nav>
+
+      <div class="topbar-controls">
+        <a class="topbar-install-btn" href="#install">Get v0.3.0</a>
+
+        <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Toggle dark and light theme">
+          <span class="theme-indicator" aria-hidden="true"></span>
+          <span id="theme-label">Dark</span>
+        </button>
+
+        <button id="menu-toggle" class="hamburger-btn" type="button" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="mobile-drawer">
+          <span class="hamburger-lines" aria-hidden="true">
+            <span></span>
+            <span></span>
+            <span></span>
+          </span>
+        </button>
+      </div>
     </div>
+
+    <div class="scroll-progress-track" aria-hidden="true">
+      <div class="scroll-progress-bar"></div>
+    </div>
+
+    <nav id="mobile-drawer" class="mobile-drawer" aria-label="Mobile Navigation">
+      <div class="mobile-drawer-inner">
+        <a href="#install" class="mobile-cta-link">Install Copyzer v0.3.0</a>
+        <a href="#architecture">Architecture &amp; capabilities</a>
+        <a href="#reference">Keyboard &amp; CLI reference</a>
+        <a href="https://github.com/phaze7r/copyzer/releases/tag/v0.3.0" target="_blank" rel="noopener">Download v0.3.0 binaries</a>
+        <a href="https://github.com/phaze7r/copyzer" target="_blank" rel="noopener">GitHub repository</a>
+        <a href="https://texodus.tech" target="_blank" rel="noopener">Texodus (texodus.tech)</a>
+      </div>
+    </nav>
   </header>
 
-  <main id="top" class="container">
+  <main id="top" class="shell">
+    <!-- Hero Section -->
     <section class="hero">
-      <div class="hero-col">
-        <div class="tui-tag">RUST TUI + CLI &bull; LINUX, MACOS &amp; WINDOWS</div>
-        <h1>Copy iPhone media at USB-C speed.</h1>
-        <p class="hero-lead">
-          <strong>Copyzer</strong> (English <em>copy</em> + Pashto <em>zer</em>, "fast") mounts your USB-C iPhone over <code>ifuse</code> / <code>libimobiledevice</code>, groups camera roll media by <strong>Year/Month</strong>, <strong>User Albums</strong>, or <strong>DCIM folders</strong>, and copies originals atomically with a 1&nbsp;MiB buffer.
-        </p>
-        <div class="hero-actions">
-          <a class="btn btn-primary" href="#install">Install v0.2.2</a>
-          <a class="btn btn-secondary" href="https://github.com/phaze7r/copyzer/releases/tag/v0.2.2" target="_blank" rel="noopener">Release v0.2.2</a>
-          <a class="btn btn-secondary" href="https://github.com/phaze7r/copyzer" target="_blank" rel="noopener">GitHub Repo</a>
+      <div class="hero-left">
+        <div class="hero-meta">
+          <span class="meta-dot" aria-hidden="true"></span>
+          <span>Rust TUI &amp; CLI for Linux, macOS, and Windows</span>
         </div>
-        <div class="cmd-box">
-          <div class="cmd-scroll">
-            <span class="cmd-prompt">$</span><code id="hero-cmd">curl -fsSL https://raw.githubusercontent.com/phaze7r/copyzer/main/install.sh | bash</code>
+
+        <h1 class="hero-title">Direct iPhone media extraction from the terminal.</h1>
+
+        <p class="hero-lead">
+          Move 100+ GB of original photos, ProRAW assets, and 4K video from your iPhone to your computer over USB&mdash;without iCloud quotas, iTunes bloat, or broken transfers. <strong>Copyzer</strong> (English <em>copy</em> + Pashto <em>zer</em>, "fast") caches your library across reconnects, preserves User Albums and Pashto folder names, and writes every byte atomically.
+        </p>
+
+        <div class="hero-actions">
+          <a class="btn btn-cta" href="#install">Install Copyzer v0.3.0</a>
+          <a class="btn btn-secondary" href="https://github.com/phaze7r/copyzer/releases/tag/v0.3.0" target="_blank" rel="noopener">Download binaries</a>
+          <a class="btn btn-secondary" href="https://github.com/phaze7r/copyzer" target="_blank" rel="noopener">View source</a>
+        </div>
+
+        <div class="quick-install-card">
+          <div class="quick-install-header">
+            <span><strong>Quick install</strong> (Linux &amp; macOS)</span>
+            <a class="quick-install-link" href="#install">Arch, Windows &amp; Cargo options</a>
           </div>
-          <button class="copy-btn" type="button" data-copy="hero-cmd">Copy</button>
+          <div class="cmd-box">
+            <div class="cmd-scroll">
+              <span class="cmd-prompt">$</span><code id="hero-cmd">curl -fsSL https://raw.githubusercontent.com/phaze7r/copyzer/main/install.sh | bash</code>
+            </div>
+            <button class="copy-btn" type="button" data-copy="hero-cmd">Copy command</button>
+          </div>
         </div>
       </div>
 
-      <!-- Interactive, Mobile-Friendly Live TUI Preview -->
-      <div class="hero-col">
-        <div class="tui-window" aria-label="Interactive Copyzer TUI preview">
+      <!-- Interactive TUI Simulator -->
+      <div class="hero-right">
+        <div id="hero-tui" class="tui-window" aria-label="Interactive Copyzer v0.3.0 Terminal Interface">
           <div class="tui-titlebar">
-            <div class="tui-dots">
-              <span class="dot-red"></span>
-              <span class="dot-amber"></span>
-              <span class="dot-green"></span>
+            <div class="tui-controls-sq" aria-hidden="true">
+              <span></span><span></span><span></span>
             </div>
-            <span class="tui-title">copyzer — ~/Pictures/Copyzer</span>
-            <span class="tui-title">Interactive TUI</span>
+            <span>copyzer &mdash; ~/Pictures/Copyzer</span>
+            <span>TTY1</span>
           </div>
 
           <div class="tui-body">
             <div class="tui-box tui-header-row">
-              <span class="tui-logo-text">COPYZER v0.2.2</span>
-              <span class="tui-device-badge">iPhone 16 Pro (iOS 27.0.1)</span>
+              <span class="tui-logo-text">COPYZER v0.3.0</span>
+              <span class="tui-device-badge">&#x067E;&#x069A;&#x062A;&#x0648; &middot; iPhone 16 Pro (iOS 27.0.1)</span>
               <span class="tui-dest">Dest: ~/Pictures/Copyzer</span>
             </div>
 
             <div class="tui-box tui-tabs-row" role="tablist">
-              <button class="tui-tab active" type="button" data-tuitab="years">[1] Years &amp; Months</button>
-              <button class="tui-tab" type="button" data-tuitab="albums">[2] Albums</button>
+              <button class="tui-tab" type="button" data-tuitab="years">[1] Years &amp; Months</button>
+              <button class="tui-tab active" type="button" data-tuitab="albums">[2] Albums</button>
               <button class="tui-tab" type="button" data-tuitab="dcim">[3] DCIM Folders</button>
             </div>
 
             <!-- Tab 1: Years & Months -->
-            <div id="tuitab-years" class="tui-list-box">
+            <div id="tuitab-years" class="tui-list-box hidden">
               <span class="tui-box-label">Years &amp; Months</span>
               <div class="tui-row selected-cursor">
-                <span class="tui-check checked">▶ [x]</span>
+                <span>&#9654; [x]</span>
                 <span>2026 (All)</span>
-                <span class="tui-count">1,420 files</span>
-                <span class="tui-size">6.84 GB</span>
+                <span class="tui-count">4,210 files</span>
+                <span class="tui-size">41.8 GB</span>
               </div>
               <div class="tui-row">
-                <span class="tui-check checked">&nbsp;&nbsp;[x]</span>
-                <span class="tui-indent">2026-11</span>
-                <span class="tui-count">214 files</span>
-                <span class="tui-size">1.12 GB</span>
+                <span>&nbsp;&nbsp;[x]</span>
+                <span>&nbsp;&nbsp;2026-11 (Nov)</span>
+                <span class="tui-count">612 files</span>
+                <span class="tui-size">6.4 GB</span>
               </div>
               <div class="tui-row">
-                <span class="tui-check checked">&nbsp;&nbsp;[x]</span>
-                <span class="tui-indent">2026-10</span>
-                <span class="tui-count">488 files</span>
-                <span class="tui-size">2.31 GB</span>
+                <span>&nbsp;&nbsp;[ ]</span>
+                <span>&nbsp;&nbsp;2026-10 (Oct)</span>
+                <span class="tui-count">940 files</span>
+                <span class="tui-size">9.1 GB</span>
               </div>
               <div class="tui-row">
-                <span class="tui-check">&nbsp;&nbsp;[ ]</span>
-                <span class="tui-indent">2026-07</span>
-                <span class="tui-count">718 files</span>
-                <span class="tui-size">3.41 GB</span>
-              </div>
-              <div class="tui-row">
-                <span class="tui-check">&nbsp;&nbsp;[ ]</span>
+                <span>&nbsp;&nbsp;[ ]</span>
                 <span>2025 (All)</span>
-                <span class="tui-count">1,890 files</span>
-                <span class="tui-size">7.92 GB</span>
+                <span class="tui-count">5,890 files</span>
+                <span class="tui-size">54.2 GB</span>
               </div>
               <div class="tui-row">
-                <span class="tui-check">&nbsp;&nbsp;[ ]</span>
-                <span class="tui-indent">2025-12</span>
-                <span class="tui-count">312 files</span>
-                <span class="tui-size">1.45 GB</span>
-              </div>
-              <div class="tui-row">
-                <span class="tui-check">&nbsp;&nbsp;[ ]</span>
+                <span>&nbsp;&nbsp;[ ]</span>
                 <span>2024 (All)</span>
-                <span class="tui-count">1,502 files</span>
-                <span class="tui-size">3.66 GB</span>
+                <span class="tui-count">3,745 files</span>
+                <span class="tui-size">34.9 GB</span>
               </div>
             </div>
 
-            <!-- Tab 2: Albums -->
-            <div id="tuitab-albums" class="tui-list-box hidden">
-              <span class="tui-box-label">Albums</span>
+            <!-- Tab 2: Albums (Default Active in Preview) -->
+            <div id="tuitab-albums" class="tui-list-box">
+              <span class="tui-box-label">Albums (User-Created)</span>
               <div class="tui-row selected-cursor">
-                <span class="tui-check checked">▶ [x]</span>
-                <span>Camera Roll</span>
-                <span class="tui-count">4,210 files</span>
-                <span class="tui-size">16.12 GB</span>
+                <span>&#9654; [x]</span>
+                <span>&#x067E;&#x069A;&#x062A;&#x0648;</span>
+                <span class="tui-count">112 files</span>
+                <span class="tui-size">400.3 MB</span>
               </div>
               <div class="tui-row">
-                <span class="tui-check checked">&nbsp;&nbsp;[x]</span>
-                <span>Favorites</span>
-                <span class="tui-count">186 files</span>
-                <span class="tui-size">742.4 MB</span>
+                <span>&nbsp;&nbsp;[x]</span>
+                <span>Project Indigo</span>
+                <span class="tui-count">44 files</span>
+                <span class="tui-size">162.8 MB</span>
               </div>
               <div class="tui-row">
-                <span class="tui-check">&nbsp;&nbsp;[ ]</span>
-                <span>Northern Areas 2026</span>
-                <span class="tui-count">314 files</span>
-                <span class="tui-size">1.52 GB</span>
+                <span>&nbsp;&nbsp;[ ]</span>
+                <span>Texodus Inc</span>
+                <span class="tui-count">14 files</span>
+                <span class="tui-size">272.2 KB</span>
               </div>
               <div class="tui-row">
-                <span class="tui-check">&nbsp;&nbsp;[ ]</span>
-                <span>ProRAW Captures</span>
-                <span class="tui-count">68 files</span>
-                <span class="tui-size">2.18 GB</span>
+                <span>&nbsp;&nbsp;[ ]</span>
+                <span>izmitrek</span>
+                <span class="tui-count">301 files</span>
+                <span class="tui-size">1.10 GB</span>
+              </div>
+              <div class="tui-row">
+                <span>&nbsp;&nbsp;[ ]</span>
+                <span>WhatsApp</span>
+                <span class="tui-count">710 files</span>
+                <span class="tui-size">1.15 GB</span>
               </div>
             </div>
 
@@ -157,297 +196,520 @@
             <div id="tuitab-dcim" class="tui-list-box hidden">
               <span class="tui-box-label">DCIM Folders</span>
               <div class="tui-row selected-cursor">
-                <span class="tui-check checked">▶ [x]</span>
+                <span>&#9654; [x]</span>
+                <span>138APPLE</span>
+                <span class="tui-count">918 files</span>
+                <span class="tui-size">11.4 GB</span>
+              </div>
+              <div class="tui-row">
+                <span>&nbsp;&nbsp;[ ]</span>
+                <span>137APPLE</span>
+                <span class="tui-count">999 files</span>
+                <span class="tui-size">12.8 GB</span>
+              </div>
+              <div class="tui-row">
+                <span>&nbsp;&nbsp;[ ]</span>
                 <span>136APPLE</span>
-                <span class="tui-count">802 files</span>
-                <span class="tui-size">3.94 GB</span>
+                <span class="tui-count">999 files</span>
+                <span class="tui-size">10.9 GB</span>
               </div>
               <div class="tui-row">
-                <span class="tui-check">&nbsp;&nbsp;[ ]</span>
+                <span>&nbsp;&nbsp;[ ]</span>
                 <span>135APPLE</span>
-                <span class="tui-count">940 files</span>
-                <span class="tui-size">4.51 GB</span>
-              </div>
-              <div class="tui-row">
-                <span class="tui-check">&nbsp;&nbsp;[ ]</span>
-                <span>134APPLE</span>
-                <span class="tui-count">884 files</span>
-                <span class="tui-size">4.12 GB</span>
-              </div>
-              <div class="tui-row">
-                <span class="tui-check">&nbsp;&nbsp;[ ]</span>
-                <span>100APPLE</span>
-                <span class="tui-count">19 files</span>
-                <span class="tui-size">28.6 MB</span>
+                <span class="tui-count">999 files</span>
+                <span class="tui-size">9.6 GB</span>
               </div>
             </div>
 
+            <!-- High-Visibility 5-Line Transfer / Cache Status Panel -->
             <div class="tui-footer-box">
-              <div class="tui-gauge-bar"></div>
-              <span class="tui-footer-text">2,840/4,210 @ 142.5 MB/s (IMG_8412.HEIC)</span>
-              <span class="tui-footer-keys">? Help &bull; Space Select &bull; Enter Copy</span>
+              <div class="tui-wave-line">
+                <span id="tui-spin-status">&#10494; Ready: 13,845 items (130.91 GB) [cached]</span>
+                <span id="tui-speed-readout">184.2 MB/s</span>
+              </div>
+              <div class="tui-wave-line">
+                <span id="tui-wave-bar" class="tui-wave-bar">&#9608;&#9608;&#9608;&#9608;&#9608;&#9608;&#9619;&#9619;&#9618;&#9618;&#9617;&#9617;&#9617;&#9617;&#9617;&#9617;&#9617;&#9617;&#9617;&#9617;</span>
+                <span>? Help &middot; Space Select &middot; Enter Copy</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
     </section>
 
-    <section id="install" class="section">
+    <!-- Interactive Installation Workbench (Primary Cobalt CTA Section) -->
+    <section id="install" class="section reveal-on-scroll">
       <div class="section-header">
-        <div class="section-eyebrow">// 01. SETUP</div>
-        <h2>Install on Linux, macOS &amp; Windows</h2>
-        <p class="section-lead">
-          Uses <code>ifuse</code> / <code>libimobiledevice</code> (<code>afcclient</code>) and <code>usbmuxd</code> to read your iPhone over USB-C in strict read-only mode.
+        <h2 class="section-title">Install Copyzer on your system.</h2>
+        <p class="section-subtitle">
+          Select your operating system below to copy the exact setup command or download the prebuilt release archive.
         </p>
       </div>
 
-      <div class="install-panel">
-        <div class="tab-strip" role="tablist" aria-label="Install methods">
-          <button class="tab-btn active" type="button" data-install="arch">Arch / Omarchy (pacman &amp; yay)</button>
-          <button class="tab-btn" type="button" data-install="universal">Linux &amp; macOS</button>
-          <button class="tab-btn" type="button" data-install="cargo">Windows &amp; Cargo</button>
+      <div class="os-tabs" role="tablist" aria-label="Operating System Installer">
+        <button class="os-tab-btn active" type="button" data-ostab="arch">
+          <span>Arch Linux &amp; Omarchy</span>
+          <span class="os-badge">Pacman Repo</span>
+        </button>
+        <button class="os-tab-btn" type="button" data-ostab="unix">
+          <span>Linux &amp; macOS</span>
+          <span class="os-badge">One-Liner</span>
+        </button>
+        <button class="os-tab-btn" type="button" data-ostab="windows">
+          <span>Windows 10 / 11</span>
+          <span class="os-badge">x86_64 .zip</span>
+        </button>
+        <button class="os-tab-btn" type="button" data-ostab="cargo">
+          <span>Rust / Cargo</span>
+          <span class="os-badge">From Source</span>
+        </button>
+      </div>
+
+      <!-- OS Panel 1: Arch Linux & Omarchy -->
+      <div id="ospanel-arch" class="os-panel">
+        <div class="os-panel-info">
+          <h3>Arch Linux &amp; Omarchy Pacman repository</h3>
+          <p>
+            Add the GitHub-hosted <code>[copyzer]</code> repository once. Pacman installs the binary, desktop launcher, and USB-A / hub power rules, and keeps Copyzer updated whenever you run <code>sudo pacman -Syu</code>.
+          </p>
+          <div class="os-panel-links">
+            <a class="btn btn-cta" href="https://github.com/phaze7r/copyzer/releases/download/v0.3.0/copyzer-0.3.0-1-x86_64.pkg.tar.zst">Download .pkg.tar.zst</a>
+            <a class="btn btn-secondary" href="https://github.com/phaze7r/copyzer/releases/tag/v0.3.0" target="_blank" rel="noopener">All v0.3.0 assets</a>
+          </div>
         </div>
 
-        <div id="install-arch" class="install-pane">
-          <pre><code># 1-line automatic setup (adds [copyzer] to /etc/pacman.conf &amp; installs via pacman):
-curl -fsSL https://raw.githubusercontent.com/phaze7r/copyzer/main/install.sh | bash
+        <div class="os-cmd-stack">
+          <div class="cmd-card">
+            <div class="cmd-card-bar">
+              <span>Add [copyzer] repo &amp; install via pacman</span>
+              <button class="copy-btn" type="button" data-copy="cmd-arch">Copy command</button>
+            </div>
+            <pre class="cmd-card-pre"><code id="cmd-arch">sudo tee -a /etc/pacman.conf &lt;&lt;'EOF'
 
-# Or add manually to /etc/pacman.conf:
-# [copyzer]
-# SigLevel = Optional TrustAll
-# Server = https://github.com/phaze7r/copyzer/releases/latest/download
+[copyzer]
+SigLevel = Optional TrustAll
+Server = https://github.com/phaze7r/copyzer/releases/latest/download
+EOF
 
-sudo pacman -Sy copyzer
-# Update anytime with the rest of your system:
-sudo pacman -Syu   # or: yay -Syu</code></pre>
+sudo pacman -Syu copyzer</code></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- OS Panel 2: Linux & macOS -->
+      <div id="ospanel-unix" class="os-panel hidden">
+        <div class="os-panel-info">
+          <h3>Universal Linux &amp; macOS installer</h3>
+          <p>
+            Automatically detects Linux (<code>x86_64</code>) or macOS (Apple Silicon <code>aarch64</code> and Intel <code>x86_64</code>), verifies the SHA-256 checksum, and installs Copyzer alongside Linux USB-A stability rules.
+          </p>
+          <div class="os-panel-links">
+            <a class="btn btn-cta" href="https://raw.githubusercontent.com/phaze7r/copyzer/main/install.sh" target="_blank" rel="noopener">View install.sh</a>
+            <a class="btn btn-secondary" href="https://github.com/phaze7r/copyzer/releases/tag/v0.3.0" target="_blank" rel="noopener">Download tar.gz archives</a>
+          </div>
         </div>
 
-        <div id="install-universal" class="install-pane hidden">
-          <pre><code># Linux &amp; macOS (Apple Silicon / Intel) prebuilt binary installer:
-curl -fsSL https://raw.githubusercontent.com/phaze7r/copyzer/main/install.sh | bash -s -- --tarball</code></pre>
+        <div class="os-cmd-stack">
+          <div class="cmd-card">
+            <div class="cmd-card-bar">
+              <span>Install on any Linux distro or macOS</span>
+              <button class="copy-btn" type="button" data-copy="cmd-unix">Copy command</button>
+            </div>
+            <pre class="cmd-card-pre"><code id="cmd-unix">curl -fsSL https://raw.githubusercontent.com/phaze7r/copyzer/main/install.sh | bash</code></pre>
+          </div>
+          <div class="cmd-card">
+            <div class="cmd-card-bar">
+              <span>macOS host tools via Homebrew</span>
+              <button class="copy-btn" type="button" data-copy="cmd-brew">Copy command</button>
+            </div>
+            <pre class="cmd-card-pre"><code id="cmd-brew">brew install libimobiledevice</code></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- OS Panel 3: Windows 10 / 11 -->
+      <div id="ospanel-windows" class="os-panel hidden">
+        <div class="os-panel-info">
+          <h3>Native Windows x86_64 release</h3>
+          <p>
+            Download the standalone Windows archive with bundled SQLite. Pair your iPhone using Apple Devices or iTunes with <code>libimobiledevice</code> tools in your <code>PATH</code>, then run <code>copyzer.exe</code> in Windows Terminal or PowerShell.
+          </p>
+          <div class="os-panel-links">
+            <a class="btn btn-cta" href="https://github.com/phaze7r/copyzer/releases/download/v0.3.0/copyzer-v0.3.0-windows-x86_64.zip">Download Windows .zip</a>
+            <a class="btn btn-secondary" href="https://github.com/phaze7r/copyzer/releases/tag/v0.3.0" target="_blank" rel="noopener">View SHA-256 checksums</a>
+          </div>
         </div>
 
-        <div id="install-cargo" class="install-pane hidden">
-          <pre><code># Windows x86_64: download copyzer-v0.2.2-windows-x86_64.zip from GitHub Releases:
-# https://github.com/phaze7r/copyzer/releases/tag/v0.2.2
+        <div class="os-cmd-stack">
+          <div class="cmd-card">
+            <div class="cmd-card-bar">
+              <span>PowerShell download &amp; launch</span>
+              <button class="copy-btn" type="button" data-copy="cmd-win">Copy command</button>
+            </div>
+            <pre class="cmd-card-pre"><code id="cmd-win">$url = "https://github.com/phaze7r/copyzer/releases/download/v0.3.0/copyzer-v0.3.0-windows-x86_64.zip"
+Invoke-WebRequest -Uri $url -OutFile "copyzer.zip"
+Expand-Archive -Path "copyzer.zip" -DestinationPath "." -Force
+.\copyzer-v0.3.0-windows-x86_64\copyzer.exe</code></pre>
+          </div>
+        </div>
+      </div>
 
-# Or build from source on any platform via Cargo:
-cargo install --git https://github.com/phaze7r/copyzer --tag v0.2.2</code></pre>
+      <!-- OS Panel 4: Rust / Cargo -->
+      <div id="ospanel-cargo" class="os-panel hidden">
+        <div class="os-panel-info">
+          <h3>Build from source with Cargo</h3>
+          <p>
+            Compile directly from git on any target with Rust 1.75 or newer. SQLite is compiled and statically linked automatically via <code>rusqlite</code> bundled mode.
+          </p>
+          <div class="os-panel-links">
+            <a class="btn btn-cta" href="https://github.com/phaze7r/copyzer" target="_blank" rel="noopener">Open GitHub repository</a>
+          </div>
+        </div>
+
+        <div class="os-cmd-stack">
+          <div class="cmd-card">
+            <div class="cmd-card-bar">
+              <span>Build and install v0.3.0 via Cargo</span>
+              <button class="copy-btn" type="button" data-copy="cmd-cargo">Copy command</button>
+            </div>
+            <pre class="cmd-card-pre"><code id="cmd-cargo">cargo install --git https://github.com/phaze7r/copyzer --tag v0.3.0</code></pre>
+          </div>
         </div>
       </div>
     </section>
 
-    <section id="features" class="section">
+    <!-- Architecture & Capabilities Matrix -->
+    <section id="architecture" class="section reveal-on-scroll">
       <div class="section-header">
-        <div class="section-eyebrow">// 02. ARCHITECTURE &amp; v0.2 OPTIMIZATIONS</div>
-        <h2>Engineered for speed &amp; data safety</h2>
-        <p class="section-lead">
-          Zero GUI bloat, no silent overwrites, and no personal data leakage.
+        <h2 class="section-title">Engineered for zero-loss media extraction.</h2>
+        <p class="section-subtitle">
+          Every subsystem in Copyzer v0.3.0 is built around deterministic file integrity, instant reconnect caching, and hardware-level USB stability.
         </p>
       </div>
-      <div class="grid-3">
-        <article class="card">
-          <div class="card-tag">[SPEED]</div>
-          <h3>1 MiB USB-C Copy Buffer</h3>
-          <p>Streams over <code>ifuse</code> with a reusable 1&nbsp;MiB buffer, live MB/s throughput gauge, and instant mid-file cancellation for multi-GB 4K videos.</p>
+
+      <div class="matrix-grid">
+        <article class="matrix-cell reveal-on-scroll" style="--reveal-delay: 0ms;">
+          <h3>Instant reconnect library cache</h3>
+          <p>
+            Copyzer snapshots your iPhone's media index and album map per device UDID in <code>~/.cache/copyzer/</code>. Reconnecting a 130+ GB library loads in under 100 milliseconds without re-walking unchanged DCIM folders.
+          </p>
         </article>
-        <article class="card">
-          <div class="card-tag">[STREAMING]</div>
-          <h3>Two-Phase Non-Blocking Scan</h3>
-          <p>Unlocks <code>Years &amp; Months</code> and <code>DCIM Folders</code> immediately while <code>Albums</code> loads in the background via <code>?immutable=1</code> SQLite.</p>
+
+        <article class="matrix-cell reveal-on-scroll" style="--reveal-delay: 60ms;">
+          <h3>Native Pashto &amp; RTL terminal shaping</h3>
+          <p>
+            Pashto and Arabic album names, folder titles, and custom iPhone device names are shaped and visually ordered for terminal grids while preserving exact logical UTF-8 folder names on your disk.
+          </p>
         </article>
-        <article class="card">
-          <div class="card-tag">[ATOMIC]</div>
-          <h3>Zero-Overwrite Safety</h3>
-          <p>Writes to <code>.copyzer.part</code>, syncs, and renames atomically. Disambiguates <code>IMG_9999</code> rollovers (<code>IMG_0001_136APPLE.JPG</code>) so photos are never overwritten.</p>
+
+        <article class="matrix-cell reveal-on-scroll" style="--reveal-delay: 120ms;">
+          <h3>Clean user-created albums</h3>
+          <p>
+            Stages <code>PhotoData/Photos.sqlite</code> (+ WAL/SHM) locally with an automatic <code>afcclient</code> fallback and filters <code>ZGENERICALBUM</code> strictly to user-created albums (<code>ZKIND = 2</code>), copying each album into its own named folder.
+          </p>
         </article>
-        <article class="card">
-          <div class="card-tag">[PRIVACY]</div>
-          <h3>0700 Private Mounts</h3>
-          <p>Mounts inside user-only <code>XDG_RUNTIME_DIR</code> with <code>0700</code> permissions, reaps stale FUSE mounts, and hides local usernames &amp; personal device names.</p>
+
+        <article class="matrix-cell reveal-on-scroll" style="--reveal-delay: 180ms;">
+          <h3>USB-A brownout &amp; hub wake protection</h3>
+          <p>
+            Ships with Linux modprobe and udev rules that blacklist <code>apple_mfi_fastcharge</code> on 500mA USB-A ports, keep daisy-chained USB 2.0 hubs awake, and apply adaptive handshake retries.
+          </p>
         </article>
-        <article class="card">
-          <div class="card-tag">[OMARCHY]</div>
-          <h3>Live Theme Sync</h3>
-          <p>Reads <code>~/.local/state/omarchy/current/theme/colors.toml</code> automatically with a high-contrast dark slate fallback.</p>
+
+        <article class="matrix-cell reveal-on-scroll" style="--reveal-delay: 240ms;">
+          <h3>1 MiB buffer &amp; atomic rename</h3>
+          <p>
+            Streams files through a reusable 1 MiB buffer into <code>.copyzer.part</code>, flushes with <code>sync_data()</code>, restores original capture timestamps, and renames atomically. Originals on your iPhone are never modified.
+          </p>
         </article>
-        <article class="card">
-          <div class="card-tag">[AUTOMATION]</div>
-          <h3>Headless CLI Subcommands</h3>
-          <p>Run <code>copyzer doctor</code>, <code>copyzer scan --json</code>, or <code>copyzer copy --year 2026</code> in scripts and cron jobs.</p>
+
+        <article class="matrix-cell reveal-on-scroll" style="--reveal-delay: 300ms;">
+          <h3>Model detection &amp; desktop notifications</h3>
+          <p>
+            Automatically identifies iPhone hardware models (from iPhone 8 through iPhone 16 Pro and iPhone 17 Pro Max) and dispatches native desktop notifications on device connect and copy completion.
+          </p>
         </article>
       </div>
     </section>
 
-    <section class="section">
+    <!-- Keyboard & CLI Reference -->
+    <section id="reference" class="section reveal-on-scroll">
       <div class="section-header">
-        <div class="section-eyebrow">// 03. SCREENSHOTS</div>
-        <h2>Desktop Terminal Captures</h2>
+        <h2 class="section-title">Keyboard-first control &amp; scriptable CLI.</h2>
+        <p class="section-subtitle">
+          Navigate 100,000+ assets without touching the mouse, or automate backups from shell scripts with JSON output.
+        </p>
       </div>
-      <div class="grid-2">
-        <figure class="shot-card" style="margin:0">
-          <figcaption>[1] Years &amp; Months Selection View</figcaption>
-          <img src="assets/tui-main.png" alt="Copyzer Years and Months TUI screenshot" loading="lazy" />
-        </figure>
-        <figure class="shot-card" style="margin:0">
-          <figcaption>[2] Albums, Help Overlay &amp; Live MB/s Progress</figcaption>
-          <img src="assets/tui-progress.png" alt="Copyzer Albums and Progress TUI screenshot" loading="lazy" />
-        </figure>
-      </div>
-    </section>
 
-    <section id="shortcuts" class="section">
-      <div class="section-header">
-        <div class="section-eyebrow">// 04. REFERENCE</div>
-        <h2>Keyboard Shortcuts &amp; CLI</h2>
-      </div>
-      <div class="grid-2">
-        <div class="shortcut-list">
-          <div class="shortcut-row">
-            <span class="shortcut-keys"><kbd>Tab</kbd> / <kbd>1</kbd>–<kbd>3</kbd></span>
-            <span class="shortcut-desc">Switch view (Years/Months, Albums, DCIM)</span>
-          </div>
-          <div class="shortcut-row">
-            <span class="shortcut-keys"><kbd>↑</kbd>/<kbd>k</kbd> <kbd>↓</kbd>/<kbd>j</kbd></span>
-            <span class="shortcut-desc">Move cursor</span>
-          </div>
-          <div class="shortcut-row">
-            <span class="shortcut-keys"><kbd>Space</kbd></span>
-            <span class="shortcut-desc">Toggle bucket selection</span>
-          </div>
-          <div class="shortcut-row">
-            <span class="shortcut-keys"><kbd>a</kbd></span>
-            <span class="shortcut-desc">Select all / none in current tab</span>
-          </div>
-          <div class="shortcut-row">
-            <span class="shortcut-keys"><kbd>Enter</kbd> / <kbd>c</kbd></span>
-            <span class="shortcut-desc">Start atomic copy</span>
-          </div>
-          <div class="shortcut-row">
-            <span class="shortcut-keys"><kbd>d</kbd></span>
-            <span class="shortcut-desc">Edit destination (<code>~/Pictures/Copyzer</code>)</span>
-          </div>
-          <div class="shortcut-row">
-            <span class="shortcut-keys"><kbd>r</kbd></span>
-            <span class="shortcut-desc">Refresh device &amp; rescan</span>
-          </div>
-          <div class="shortcut-row">
-            <span class="shortcut-keys"><kbd>?</kbd> / <kbd>q</kbd></span>
-            <span class="shortcut-desc">Toggle help overlay / Quit &amp; unmount</span>
-          </div>
+      <div class="split-grid">
+        <div class="split-col">
+          <h3>Interactive TUI keybindings</h3>
+          <table class="key-table">
+            <tbody>
+              <tr>
+                <td>Tab / 1 / 2 / 3</td>
+                <td>Switch between Years &amp; Months, Albums, and DCIM views</td>
+              </tr>
+              <tr>
+                <td>j / k or &uarr; / &darr;</td>
+                <td>Move cursor across media buckets</td>
+              </tr>
+              <tr>
+                <td>Space</td>
+                <td>Toggle selection on highlighted album, year, or folder</td>
+              </tr>
+              <tr>
+                <td>a</td>
+                <td>Select all or deselect all in current view</td>
+              </tr>
+              <tr>
+                <td>Enter / c</td>
+                <td>Copy selected buckets into named destination folders</td>
+              </tr>
+              <tr>
+                <td>d</td>
+                <td>Edit destination directory path inline</td>
+              </tr>
+              <tr>
+                <td>r</td>
+                <td>Re-verify device connection and rescan media library</td>
+              </tr>
+              <tr>
+                <td>q / Esc</td>
+                <td>Cancel active transfer immediately or quit</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
 
-        <div class="install-panel">
-          <div class="card-tag">[CLI USAGE]</div>
-          <pre><code># Launch interactive TUI
+        <div class="split-col">
+          <h3>Headless CLI subcommands</h3>
+          <pre class="code-block"><code># Launch interactive TUI (default)
 copyzer
 
-# Verify usbmuxd, ifuse, and connected iPhone
+# Check required host tools, USB-A kernel modules, and iPhone trust state
 copyzer doctor
 
-# Output full camera roll index as JSON
-copyzer scan --json
+# Print media summary (or pass --json for automation)
+copyzer scan
 
-# Copy a specific year/month headlessly
-copyzer copy --year 2026 --month 11</code></pre>
+# Copy specific user albums directly into ~/Pictures/Copyzer/&lt;Album&gt;/
+copyzer copy --album "Project Indigo" --dest ~/Pictures/Copyzer
+
+# Copy an entire year or month
+copyzer copy --year 2026 --month 2025-11 --dest ~/Pictures/Copyzer</code></pre>
         </div>
-      </div>
-    </section>
-
-    <section id="roadmap" class="section">
-      <div class="section-header">
-        <div class="section-eyebrow">// 05. ROADMAP &amp; COMMUNITY</div>
-        <h2>Coming in v0.3+ &amp; Contributing</h2>
-        <p class="section-lead">
-          We welcome pull requests, bug reports, and hardware testing from Linux &amp; Rust developers.
-        </p>
-      </div>
-      <div class="grid-3">
-        <article class="card">
-          <div class="card-tag">[v0.3 ROADMAP]</div>
-          <h3>Lightning &amp; Legacy iPhones</h3>
-          <p>Adaptive USB 2.0 handshake retries, iOS 12–15 <code>Photos.sqlite</code> adapters, and full model mapping back to iPhone 6s.</p>
-        </article>
-        <article class="card">
-          <div class="card-tag">[v0.3 ROADMAP]</div>
-          <h3>Optional Media Transcoding</h3>
-          <p>On-the-fly <code>HEIC → JPEG</code> and <code>MOV → MP4</code> conversion during copy while keeping originals intact.</p>
-        </article>
-        <article class="card">
-          <div class="card-tag">[CONTRIBUTE]</div>
-          <h3>Submit Issues &amp; PRs</h3>
-          <p>Found a bug or want to build a feature? <a href="https://github.com/phaze7r/copyzer/issues" target="_blank" rel="noopener" style="color:var(--amber);text-decoration:underline">Open an issue on GitHub</a> with your <code>copyzer doctor</code> output.</p>
-        </article>
       </div>
     </section>
   </main>
 
-  <footer class="footer">
-    <div class="container footer-inner">
-      <div class="footer-brand">
-        <img src="assets/copyzer.svg" alt="Copyzer logo" />
-        <span><strong>COPYZER</strong> &bull; Built by <a href="https://texodus.tech" target="_blank" rel="noopener" style="color:var(--amber)">Texodus</a></span>
+  <!-- Architectural Footer with Prominent Copyzer Logo -->
+  <footer class="site-footer reveal-on-scroll">
+    <div class="footer-inner">
+      <div class="footer-top">
+        <div class="footer-brand-col">
+          <a class="footer-logo-lockup" href="#top" aria-label="Copyzer by Texodus">
+            <svg class="footer-logo-svg" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <rect x="2" y="2" width="60" height="60" stroke="currentColor" stroke-width="2.5" />
+              <rect x="12" y="13" width="18" height="38" stroke="currentColor" stroke-width="2.5" />
+              <line x1="18" y1="18" x2="24" y2="18" stroke="currentColor" stroke-width="2.5" />
+              <rect x="16" y="23" width="10" height="12" fill="currentColor" />
+              <path d="M35 20H52V44H35" stroke="currentColor" stroke-width="2.5" />
+              <path d="M27 32H45M40 26L46 32L40 38" stroke="#2563EB" stroke-width="3.2" stroke-linecap="square" />
+            </svg>
+            <div class="footer-wordmark">
+              <span class="footer-wordmark-title">COPYZER</span>
+              <span class="footer-wordmark-sub">RELEASE v0.3.0 &middot; MIT LICENSE</span>
+            </div>
+          </a>
+          <p class="footer-tagline">
+            High-throughput, zero-loss iPhone media extraction for Linux, macOS, and Windows. Designed and engineered by Texodus.
+          </p>
+        </div>
+
+        <div class="footer-col">
+          <span class="footer-col-title">Navigation</span>
+          <a href="#top">Overview</a>
+          <a href="#install">Installation</a>
+          <a href="#architecture">Architecture</a>
+          <a href="#reference">Keys &amp; CLI</a>
+        </div>
+
+        <div class="footer-col">
+          <span class="footer-col-title">Releases &amp; Packages</span>
+          <a href="https://github.com/phaze7r/copyzer/releases/tag/v0.3.0" target="_blank" rel="noopener">Release v0.3.0</a>
+          <a href="https://github.com/phaze7r/copyzer/releases/latest" target="_blank" rel="noopener">Arch Pacman Repo</a>
+          <a href="https://raw.githubusercontent.com/phaze7r/copyzer/main/install.sh" target="_blank" rel="noopener">install.sh Script</a>
+          <a href="https://github.com/phaze7r/copyzer/issues" target="_blank" rel="noopener">Issue Tracker</a>
+        </div>
+
+        <div class="footer-col">
+          <span class="footer-col-title">Texodus</span>
+          <a href="https://texodus.tech" target="_blank" rel="noopener">texodus.tech</a>
+          <a href="https://github.com/phaze7r/copyzer" target="_blank" rel="noopener">GitHub (@phaze7r)</a>
+          <a href="https://github.com/phaze7r/copyzer/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>
+        </div>
       </div>
-      <div class="footer-links">
-        <a href="https://texodus.tech" target="_blank" rel="noopener">texodus.tech</a>
-        <a href="https://github.com/phaze7r/copyzer" target="_blank" rel="noopener">GitHub</a>
-        <a href="https://github.com/phaze7r/copyzer/releases/tag/v0.2.2" target="_blank" rel="noopener">v0.2.2 Release</a>
-        <a href="https://github.com/phaze7r/copyzer/issues" target="_blank" rel="noopener">Issues</a>
-        <a href="https://github.com/phaze7r/copyzer/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>
+
+      <div class="footer-bottom">
+        <span>&copy; 2026 Copyzer by <a href="https://texodus.tech" target="_blank" rel="noopener">Texodus</a>. All rights reserved. Original copywriting, interface system, and source code protected under the MIT License.</span>
+        <span>BUILT WITH RUST &amp; RATATUI</span>
       </div>
     </div>
   </footer>
 
   <script>
-    // Interactive TUI preview tabs
-    document.querySelectorAll("[data-tuitab]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        document.querySelectorAll("[data-tuitab]").forEach((b) => b.classList.remove("active"));
-        btn.classList.add("active");
-        ["years", "albums", "dcim"].forEach((id) => {
-          document.getElementById("tuitab-" + id).classList.toggle("hidden", id !== btn.dataset.tuitab);
+    (function () {
+      // 1. Always initialize in Dark Theme on page load; allow toggling Dark <-> Light
+      const root = document.documentElement;
+      root.setAttribute('data-theme', 'dark');
+      const themeBtn = document.getElementById('theme-toggle');
+      const themeLabel = document.getElementById('theme-label');
+
+      if (themeBtn && themeLabel) {
+        themeBtn.addEventListener('click', function () {
+          const current = root.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+          const next = current === 'dark' ? 'light' : 'dark';
+          root.setAttribute('data-theme', next);
+          themeLabel.textContent = next === 'dark' ? 'Dark' : 'Light';
+        });
+      }
+
+      // 2. Mobile Hamburger Menu Toggle
+      const menuBtn = document.getElementById('menu-toggle');
+      const drawer = document.getElementById('mobile-drawer');
+      if (menuBtn && drawer) {
+        menuBtn.addEventListener('click', function () {
+          const expanded = menuBtn.getAttribute('aria-expanded') === 'true';
+          menuBtn.setAttribute('aria-expanded', String(!expanded));
+          drawer.classList.toggle('open', !expanded);
+        });
+        drawer.querySelectorAll('a').forEach(function (link) {
+          link.addEventListener('click', function () {
+            menuBtn.setAttribute('aria-expanded', 'false');
+            drawer.classList.remove('open');
+          });
+        });
+      }
+
+      // 3. Interactive TUI Tab Switcher
+      const tuiTabs = document.querySelectorAll('[data-tuitab]');
+      const tuiPanels = {
+        years: document.getElementById('tuitab-years'),
+        albums: document.getElementById('tuitab-albums'),
+        dcim: document.getElementById('tuitab-dcim')
+      };
+      tuiTabs.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          const target = btn.getAttribute('data-tuitab');
+          tuiTabs.forEach(function (t) { t.classList.remove('active'); });
+          btn.classList.add('active');
+          Object.keys(tuiPanels).forEach(function (key) {
+            if (tuiPanels[key]) {
+              tuiPanels[key].classList.toggle('hidden', key !== target);
+            }
+          });
         });
       });
-    });
 
-    // Clickable TUI rows (toggle selection & highlight cursor)
-    document.querySelectorAll(".tui-row").forEach((row) => {
-      row.addEventListener("click", () => {
-        const parent = row.parentElement;
-        parent.querySelectorAll(".tui-row").forEach((r) => {
-          r.classList.remove("selected-cursor");
-          const chk = r.querySelector(".tui-check");
-          chk.textContent = chk.textContent.replace("▶ ", "  ");
+      // 4. Interactive OS Installation Workbench Switcher
+      const osTabs = document.querySelectorAll('[data-ostab]');
+      const osPanels = {
+        arch: document.getElementById('ospanel-arch'),
+        unix: document.getElementById('ospanel-unix'),
+        windows: document.getElementById('ospanel-windows'),
+        cargo: document.getElementById('ospanel-cargo')
+      };
+      osTabs.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          const target = btn.getAttribute('data-ostab');
+          osTabs.forEach(function (t) { t.classList.remove('active'); });
+          btn.classList.add('active');
+          Object.keys(osPanels).forEach(function (key) {
+            if (osPanels[key]) {
+              osPanels[key].classList.toggle('hidden', key !== target);
+            }
+          });
         });
-        row.classList.add("selected-cursor");
-        const check = row.querySelector(".tui-check");
-        const isChecked = check.classList.toggle("checked");
-        check.textContent = isChecked ? "▶ [x]" : "▶ [ ]";
       });
-    });
 
-    // Install tabs
-    document.querySelectorAll("[data-install]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        document.querySelectorAll("[data-install]").forEach((b) => b.classList.remove("active"));
-        btn.classList.add("active");
-        document.querySelectorAll(".install-pane").forEach((p) => p.classList.add("hidden"));
-        document.getElementById("install-" + btn.dataset.install).classList.remove("hidden");
+      // 5. One-Click Command Copy
+      document.querySelectorAll('[data-copy]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          const id = btn.getAttribute('data-copy');
+          const el = document.getElementById(id);
+          if (!el || !navigator.clipboard) return;
+          navigator.clipboard.writeText(el.textContent.trim()).then(function () {
+            const prev = btn.textContent;
+            btn.textContent = 'Copied';
+            setTimeout(function () { btn.textContent = prev; }, 1400);
+          });
+        });
       });
-    });
 
-    // Copy button
-    document.querySelectorAll("[data-copy]").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        const text = document.getElementById(btn.dataset.copy).textContent;
-        try {
-          await navigator.clipboard.writeText(text);
-          const prev = btn.textContent;
-          btn.textContent = "Copied!";
-          setTimeout(() => (btn.textContent = prev), 1500);
-        } catch (_) {}
-      });
-    });
+      // 6. Scroll Choreography: Top Laser Progress Bar, Hero TUI Scrubber, & Section Reveal
+      const revealEls = document.querySelectorAll('.reveal-on-scroll');
+      if ('IntersectionObserver' in window) {
+        const revealObserver = new IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('is-visible');
+            }
+          });
+        }, { threshold: 0.12 });
+        revealEls.forEach(function (el) { revealObserver.observe(el); });
+
+        const navLinks = document.querySelectorAll('[data-navsection]');
+        const sectionObserver = new IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) {
+            if (entry.isIntersecting && entry.target.id) {
+              navLinks.forEach(function (link) {
+                link.classList.toggle(
+                  'active-section',
+                  link.getAttribute('data-navsection') === entry.target.id
+                );
+              });
+            }
+          });
+        }, { rootMargin: '-25% 0px -55% 0px' });
+        ['install', 'architecture', 'reference'].forEach(function (id) {
+          const sec = document.getElementById(id);
+          if (sec) sectionObserver.observe(sec);
+        });
+      } else {
+        revealEls.forEach(function (el) { el.classList.add('is-visible'); });
+      }
+
+      const heroTui = document.getElementById('hero-tui');
+      const waveBar = document.getElementById('tui-wave-bar');
+      const waveFrames = [
+        '██████▓▓▒▒░░░░░░░░░░',
+        '░░██████▓▓▒▒░░░░░░░░',
+        '░░░░██████▓▓▒▒░░░░░░',
+        '░░░░░░██████▓▓▒▒░░░░',
+        '░░░░░░░░██████▓▓▒▒░░',
+        '░░░░░░░░░░██████▓▓▒▒',
+        '▒▒░░░░░░░░░░██████▓▓',
+        '▓▓▒▒░░░░░░░░░░██████'
+      ];
+      const reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      window.addEventListener('scroll', function () {
+        const scrollTop = window.scrollY || document.documentElement.scrollTop;
+        const docHeight = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+        const pct = Math.min(100, Math.max(0, (scrollTop / docHeight) * 100));
+        root.style.setProperty('--scroll-progress', pct.toFixed(1) + '%');
+
+        if (!reducedMotion && heroTui && scrollTop < 700) {
+          const offset = Math.min(18, scrollTop * 0.035);
+          heroTui.style.setProperty('--tui-parallax', (-offset).toFixed(1) + 'px');
+        }
+        if (waveBar) {
+          const frameIdx = Math.floor(scrollTop / 40) % waveFrames.length;
+          waveBar.textContent = waveFrames[frameIdx];
+        }
+      }, { passive: true });
+    })();
   </script>
 </body>
 </html>

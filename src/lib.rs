@@ -1,7 +1,9 @@
 pub mod albums;
+pub mod cache;
 pub mod cli;
 pub mod copier;
 pub mod device;
+pub mod rtl;
 pub mod scanner;
 pub mod theme;
 pub mod tui;

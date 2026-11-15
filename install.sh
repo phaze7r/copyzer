@@ -2,7 +2,7 @@
 set -euo pipefail
 
 REPO="phaze7r/copyzer"
-VERSION="${COPYZER_VERSION:-v0.2.2}"
+VERSION="${COPYZER_VERSION:-v0.3.0}"
 OS="$(uname -s)"
 ARCH="$(uname -m)"
 
