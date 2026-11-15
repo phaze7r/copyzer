@@ -113,6 +113,14 @@ Download `copyzer-v0.3.0-windows-x86_64.zip` from the [v0.3.0 Releases page](htt
 cargo install --git https://github.com/phaze7r/copyzer --tag v0.3.0
 ```
 
+## Connecting Your iPhone (Important)
+
+Once you plug your iPhone into your PC or USB hub:
+1. **Unlock your iPhone** with Face ID or your passcode.
+2. If iOS shows **"Allow Accessory to Connect?"**, tap **Allow** (iOS blocks USB data until accessories are allowed).
+3. If iOS shows **"Trust This Computer?"**, tap **Trust** and enter your iPhone passcode.
+4. Launch `copyzer` (or press `r` inside Copyzer to refresh).
+
 ## Keyboard Shortcuts (TUI)
 
 Launch the TUI by running `copyzer` (or selecting **Copyzer** from your app launcher):

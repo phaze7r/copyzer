@@ -261,14 +261,14 @@ fn empty_state_message(app: &AppState) -> (String, ratatui::style::Color) {
             app.theme.error,
         ),
         DeviceStatus::Untrusted { message, .. } => (
-            format!("\n{message}\n\nUnlock iPhone & tap Trust, then press r to refresh."),
+            format!("\n{message}\n\nUnlock iPhone, tap 'Allow' if asked to Allow Accessory to Connect, and tap 'Trust' on 'Trust This Computer?', then press r."),
             app.theme.warning,
         ),
         DeviceStatus::NoDevice => {
             let hint = if crate::device::is_apple_fastcharge_loaded() {
-                "\nPlug in iPhone, then press r to refresh.\n\n(Using a USB-A to USB-C cable? Run `sudo modprobe -r apple_mfi_fastcharge` if the port resets.)"
+                "\nPlug in & unlock your iPhone, tap 'Allow' on 'Allow Accessory to Connect?', then press r.\n\n(Using a USB-A to USB-C cable? Run `sudo modprobe -r apple_mfi_fastcharge` if the port resets.)"
             } else {
-                "\nPlug in iPhone via USB-C or USB-A, then press r to refresh."
+                "\nPlug in & unlock your iPhone, tap 'Allow' on 'Allow Accessory to Connect?' and 'Trust This Computer?', then press r."
             };
             (hint.to_string(), app.theme.muted)
         }

@@ -151,6 +151,7 @@ fn run_doctor(json: bool) -> Result<()> {
         }
         DeviceStatus::NoDevice => {
             println!("  no device detected");
+            println!("  hint: Unlock your iPhone, tap 'Allow' on 'Allow Accessory to Connect?', and tap 'Trust' on 'Trust This Computer?'.");
             if report.usb_a_fastcharge_warning {
                 println!(
                     "  hint (USB-A cable): 'apple_mfi_fastcharge' kernel module is loaded and can brown out USB-A ports."

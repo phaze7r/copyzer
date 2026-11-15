@@ -112,6 +112,24 @@ impl DeviceInfo {
     }
 }
 
+#[cfg(not(target_os = "macos"))]
+fn resolve_notification_icon() -> String {
+    const EMBEDDED_SVG: &str = include_str!("../pkgbuild/copyzer.svg");
+    let base_dir = env::var_os("XDG_RUNTIME_DIR")
+        .map(PathBuf::from)
+        .filter(|p| p.is_dir())
+        .unwrap_or_else(env::temp_dir);
+    let runtime_icon = base_dir.join("copyzer-logo.svg");
+    if std::fs::write(&runtime_icon, EMBEDDED_SVG).is_ok() {
+        return runtime_icon.to_string_lossy().into_owned();
+    }
+    let sys_icon = Path::new("/usr/share/icons/hicolor/scalable/apps/copyzer.svg");
+    if sys_icon.is_file() {
+        return sys_icon.to_string_lossy().into_owned();
+    }
+    "copyzer".to_string()
+}
+
 /// Sends a non-blocking desktop notification (via `notify-send` on Linux or `osascript` on macOS).
 pub fn notify_desktop(summary: &str, body: &str) {
     let summary = summary.to_string();
@@ -136,8 +154,18 @@ pub fn notify_desktop(summary: &str, body: &str) {
         #[cfg(not(target_os = "macos"))]
         {
             if tool_in_path("notify-send") {
+                let icon = resolve_notification_icon();
                 let _ = Command::new("notify-send")
-                    .args(["-a", "Copyzer", "-i", "phone", &summary, &body])
+                    .args([
+                        "-a",
+                        "Copyzer",
+                        "-i",
+                        &icon,
+                        "-h",
+                        "string:desktop-entry:copyzer",
+                        &summary,
+                        &body,
+                    ])
                     .stdin(Stdio::null())
                     .stdout(Stdio::null())
                     .stderr(Stdio::null())
