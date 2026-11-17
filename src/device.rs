@@ -521,6 +521,9 @@ fn cleanup_stale_mounts() {
                 continue;
             }
             let path = entry.path();
+            if !is_directory(&path) {
+                continue;
+            }
             match std::fs::read_dir(&path) {
                 Err(_) => {
                     // Stale/disconnected FUSE mount (e.g. ENOTCONN / EIO)
@@ -536,6 +539,10 @@ fn cleanup_stale_mounts() {
             }
         }
     }
+}
+
+fn is_directory(path: &Path) -> bool {
+    std::fs::symlink_metadata(path).is_ok_and(|metadata| metadata.is_dir())
 }
 
 pub fn parse_udid_list(raw: &str) -> Option<String> {
@@ -686,6 +693,18 @@ SerialNumber: ABC123
             ios_version: "27.0.1".to_string(),
         };
         assert_eq!(info.display_label(), "پښتو · iPhone 17 Pro");
+    }
+
+    #[test]
+    fn stale_mount_cleanup_only_accepts_directories() {
+        let temp = tempfile::tempdir().unwrap();
+        let directory = temp.path().join("copyzer-mount");
+        let file = temp.path().join("copyzer-logo.svg");
+        std::fs::create_dir(&directory).unwrap();
+        std::fs::write(&file, "<svg />").unwrap();
+
+        assert!(is_directory(&directory));
+        assert!(!is_directory(&file));
     }
 
     #[test]
